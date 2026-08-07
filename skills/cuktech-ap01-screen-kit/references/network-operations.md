@@ -47,7 +47,8 @@ If the host address changes later:
 3. never add an old address merely because ping is silent; another client or
    stale DHCP lease may own it;
 4. when the old address is occupied or unrecoverable, reserve a new address,
-   validate `/health` and `/screen.gif` through it, then rebuild from the
+   validate `/health` and the installed loader path (`/screen.ap2b` for the
+   verified two-page build, `/screen.gif` for legacy builds), then rebuild from the
    reviewed stock/compat input and reinstall once with explicit confirmation.
 
 When the router cannot provide a reservation, tell the user before install
@@ -59,7 +60,8 @@ above. Do not repeatedly install while the address is still unstable. See
 
 Run the bridge in a persistent terminal, macOS `launchd`, Windows Task
 Scheduler, or another process
-supervisor. Verify `/health` and watch for AP01 `/screen.gif` requests. If the
+supervisor. Verify `/health` and watch for AP01 `/screen.ap2b` or legacy
+`/screen.gif` requests. If the
 bridge stops, AP01 retains its last decoded RAM image until reboot and retries
 every 30 seconds; after reboot it displays the embedded fallback until the
 bridge returns.

@@ -2,7 +2,8 @@
 
 The relay lets an AP01 owner without a Xiaomi gateway perform the one-time
 real-time loader installation. It is not part of normal screen delivery: after
-installation, AP01 fetches `/screen.gif` directly from the owner's LAN Bridge.
+installation, AP01 fetches `/screen.gif` (legacy) or `/screen.ap2b` (two-page)
+directly from the owner's LAN Bridge.
 
 ## User requirements
 
@@ -12,7 +13,7 @@ installation, AP01 fetches `/screen.gif` directly from the owner's LAN Bridge.
 - CUKTECH Screen Controller.
 
 No gateway purchase, firmware file, USB data cable or command line is needed.
-The app performs read-only checks and download-only validation first, then
+The app performs read-only checks and host-side CDN readback first, then
 requires explicit confirmation immediately before the Flash write.
 
 ## Trust boundary
@@ -25,7 +26,7 @@ Server guarantees:
 
 - stock image pinned to SHA-256
   `8a721fc8ef25458d415b2460e4a251e0503a82f7743fdff85b12612190e5c1cb`;
-- only private IPv4 `http://IP:8765/screen.gif` targets;
+- only private IPv4 `http://IP:8765/screen.gif` or `/screen.ap2b` targets;
 - no arbitrary upload endpoint;
 - existing Recovery CRC, changed-range, payload readback and relocation checks;
 - Xiaomi OTA CDN host pinning;

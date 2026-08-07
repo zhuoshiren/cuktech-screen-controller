@@ -8,4 +8,4 @@ CUKTECH Screen Controller for Windows bundles the following runtime components:
 
 The complete license files remain inside the portable App directory. Project
 source code and notices are available at:
-https://github.com/wqytommy666/cuktech-screen-controller
+https://github.com/zhuoshiren/cuktech-screen-controller

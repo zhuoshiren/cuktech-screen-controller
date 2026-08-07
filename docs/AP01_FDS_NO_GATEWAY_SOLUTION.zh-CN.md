@@ -1,7 +1,7 @@
-# AP01 无外置网关时的 FDS 上传与 `download-only` 解决方案
+# AP01 无外置网关时的 FDS 上传与电脑端回读验证
 
 > **普通用户优先使用 Controller 0.4 的自动流程：**打开“首次部署 / OTA 交接”，
-> 点击“无网关：一键获取部署包”，再依次完成“仅下载验证”和最终确认安装。用户
+> 点击“无网关：一键获取部署包”，再依次完成“电脑端 CDN 回读验证”和最终确认安装。用户
 > 不需要购买网关或手工传递 BIN/URL。本文余下内容保留给 Agent、离线交接和故障排查。
 > 共享服务边界见 [FDS Relay 运维文档](FDS_RELAY_OPERATOR.zh-CN.md)。
 
@@ -49,7 +49,7 @@ message: invalid config for fds
 ### 3.1 两端先更新仓库
 
 ```bash
-git clone https://github.com/wqytommy666/cuktech-screen-controller.git
+git clone https://github.com/zhuoshiren/cuktech-screen-controller.git
 cd cuktech-screen-controller
 python3 -m venv .venv
 .venv/bin/python -m pip install -r requirements.txt
@@ -66,8 +66,7 @@ git pull --ff-only
 
 ```text
 --upload-only
---download-only
---ota-url
+--verify-download
 --ota-url-file
 --url-output
 --fds-did
@@ -128,37 +127,50 @@ https://iot-ota-cdn.io.mi.com/...
 
 将该文本文件立即发送给 B 端。不要把签名 URL 提交进 Git、Issue 或日志。
 
-### 3.4 B 端：AP01 所属账号只执行下载验证
+### 3.4 B 端：电脑端只执行下载验证
 
 将收到的 URL 文件保存为 `./ap01-ota-url.txt`，然后执行：
 
 ```bash
 .venv/bin/python ap01_install_firmware.py \
   ./screen-realtime.bin \
-  --download-only \
+  --verify-download \
   --ota-url-file ./ap01-ota-url.txt \
   --timeout 360
 ```
 
-禁止加入 `--install`。上述流程会：
+这一步由电脑下载官方 OTA CDN 上的完整对象并核对 BFNP、大小、SHA-256 和 MD5，
+不会创建米家会话、不会连接 AP01、不会下发 OTA。`--download-only` 已禁用，因为
+AP01 1.0.2_0031 实测可能在下载完成后继续自动安装并重启。
 
-1. 从 URL 回读前四字节并确认是 `BFNP`；
-2. 从 B 端米家账号中自动寻找 `njcuk.enstor.ap01`；
-3. 计算 B 端本地 BIN 的 MD5 和文件长度；
-4. 向 AP01 发送 `miIO.ota`，其中 `proc=dnld`；
-5. 轮询 `miIO.get_ota_state` 和 `miIO.get_ota_progress`；
-6. 在下载及校验完成后退出，不发送安装指令。
+这一阶段禁止加入 `--install`。上述流程只会：
+
+1. 读取本地 BIN 并确认文件头是 `BFNP`；
+2. 在电脑上下载官方 OTA CDN 的完整对象；
+3. 比较远端与本地文件的大小、SHA-256 和 MD5；
+4. 验证后退出，不初始化 `MiCloud`，也不调用任何 AP01 RPC。
 
 成功输出应接近：
 
 ```text
-已验证外部 OTA URL 的 BFNP 文件头；跳过 FDS 上传
-设备已接受 OTA 下载测试；本次不安装、不切换启动分区…
-[  0s] state=downloading progress=...
-...
-state=downloaded progress=100
-下载校验已完成；镜像尚未安装
+电脑端 OTA CDN 回读验证通过：BFNP，6804520 字节，SHA-256 与 MD5 完全一致；
+未连接 AP01、未下发 OTA。
 ```
+
+### 3.5 最终安装必须单独确认
+
+只有目标 AP01 的拥有者在看过回读结果并明确同意安装后，才执行：
+
+```bash
+.venv/bin/python ap01_install_firmware.py \
+  ./screen-realtime.bin \
+  --install \
+  --ota-url-file ./ap01-ota-url.txt \
+  --timeout 420
+```
+
+这一步会登录本机米家账号并向 AP01 下发 OTA，设备将安装、重启。签名 URL
+不得作为命令行参数传入，以免进入 Shell 历史或进程列表。
 
 ## 4. Agent 故障分流
 
@@ -183,7 +195,7 @@ URL 指向了错误文件、发生了网页跳转，或上传的不是最终 BIN
 ### `njcuk.enstor.ap01 was not found`
 
 B 端本机米家登录的账号不包含目标 AP01，或区域/账号不一致。修正米家登录
-状态后重新执行，不要把 A 端网关账号用于 AP01 下发。
+状态后重新执行最终安装，不要把 A 端网关账号用于 AP01 下发。
 
 ### `AP01 未接受 OTA`
 
@@ -203,16 +215,16 @@ B 端本机米家登录的账号不包含目标 AP01，或区域/账号不一致
   实时 GIF Loader 是两条不同链路。
 - 不要默认 GitHub Release、网盘、任意 S3 HTTPS 都与 AP01 的 mbedTLS
   兼容；重定向、证书链和 TLS 配置都可能失败。
-- 不要在本任务中使用 `--install`。
+- 不要在电脑端回读验证通过和设备拥有者明确确认之前使用 `--install`。
 - 不要把已经注入实时 Loader 的 BIN 再传给 `ap01_custom_ota.py` 重建。
 
-## 6. 本任务的完成标准
+## 6. 分阶段完成标准
 
 - URL 回读确认 `BFNP`；
-- AP01 接受 `miIO.ota` 下载请求；
-- OTA 状态达到 `downloaded` 或进度达到 `100`；
-- 日志输出“下载校验已完成；镜像尚未安装”；
-- AP01 未重启，未切换启动分区，未执行安装。
+- 远端与本地文件的大小、SHA-256 和 MD5 完全一致；
+- 验证阶段没有创建米家会话、没有连接 AP01；
+- 最终安装只在单独确认后执行；
+- 安装后 AP01 完成重启并重新在线。
 
-达到以上状态后停止，保存两端 SHA-256、下载验证日志和生成时间。实际安装
-应作为另一个明确授权的步骤单独执行。
+达到前三项后先停止，保存 SHA-256、下载验证日志和生成时间。第四项属于另一
+个明确授权的设备写入步骤。

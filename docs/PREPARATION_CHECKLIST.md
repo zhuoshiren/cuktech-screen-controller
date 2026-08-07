@@ -10,7 +10,7 @@ stock AP01.
 | --- | --- |
 | It has shown computer-supplied artwork, GIFs, or a quota dashboard | The real-time loader exists. Install the app and **do not OTA again** |
 | Completely stock; it has never shown computer-supplied content | Verify the exact model and firmware, then use the coding-agent loader workflow once |
-| Unknown | Run read-only diagnostics and look for `GET /screen.gif 200`; do not guess or flash it |
+| Unknown | Run read-only diagnostics and look for `GET /screen.ap2b 200` or legacy `/screen.gif 200`; do not guess or flash it |
 
 ## 2. Hardware
 
@@ -37,18 +37,18 @@ address with DHCP. Use the IP/MAC shown by the router and never take an address
 already assigned to another device. The AP01 must be able to request:
 
 ```text
-http://<COMPUTER_LAN_IP>:8765/screen.gif
+http://<COMPUTER_LAN_IP>:8765/screen.ap2b
 ```
 
 The end-to-end success signal is a logged request such as:
 
 ```text
-AP01_IP "GET /screen.gif HTTP/1.0" 200
+AP01_IP "GET /screen.ap2b HTTP/1.0" 200
 ```
 
 ### Why this reservation is a loader precondition
 
-The loader stores the complete `http://COMPUTER_IP:8765/screen.gif` URL and
+The loader stores the complete `http://COMPUTER_IP:8765/screen.ap2b` URL and
 does not discover a host after DHCP changes. On macOS, keep Private Wi-Fi
 Address fixed rather than rotating. Reconnect or restart once and prove that
 the address remains unchanged before installing.

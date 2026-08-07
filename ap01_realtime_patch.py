@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
-"""Build and verify an offline AP01 real-time GIF firmware patch.
+"""Build and verify an offline AP01 two-page real-time firmware patch.
 
 The generated image reuses the stock weather timer and NuttX webclient to GET
-``/screen.gif`` from a local HTTP bridge.  The payload streams the response to
-one of three RAM-backed tmpfs slots and publishes a checksummed metadata record
-only after HTTP 200 and GIF validation.  A wrapper around the stock one-second
-LVGL timer applies a newly published slot on the UI thread.
+``/screen.ap2b`` from a local HTTP bridge.  The response contains two GIFs for
+Codex+Claude and Kimi+DeepSeek.  The payload streams both into one of three
+RAM-backed tmpfs generations and publishes a checksummed metadata record only
+after HTTP 200 and per-page GIF validation.  A wrapper around the stock
+one-second LVGL timer attaches the dashboards to stock windows 5 and 7 while
+leaving stock window 6 (Settings) untouched and keeping at most one full-size
+GIF decoder active.
 
 This program is intentionally an *offline-only* builder.  It contains no OTA,
 cloud, socket, serial, or device-install operation.
@@ -33,7 +36,7 @@ PAYLOAD_LINKER = PAYLOAD_DIR / "ap01_realtime_payload.ld"
 DEFAULT_INPUT = HERE / "artifacts" / "ap01-1.0.2_0031-screen-compat.bin"
 DEFAULT_OUTPUT = HERE / "artifacts" / "ap01-1.0.2_0031-screen-realtime.bin"
 DEFAULT_BUILD_DIR = HERE / "artifacts" / "realtime-build"
-DEFAULT_URL = "http://192.168.1.100:8765/screen.gif"
+DEFAULT_URL = "http://192.168.1.100:8765/screen.ap2b"
 
 FIRMWARE_SIZE = 6_804_520
 XIP_DELTA = 0x9FFFF000
@@ -90,13 +93,27 @@ REQUIRED_PAYLOAD_SYMBOLS = (
 
 VERIFIED_FIRMWARE_CALLEES = (
     0xA00BB5DA,  # stock one-second UI callback
-    0xA00C5D84,  # lv_window_slider_get_win_obj_by_idx
+    0xA00C5D84,  # lv_obj_get_child (used by stock slider lookup)
+    0xA00C5FE4,  # lv_obj_get_child_count
+    0xA00C3876,  # lv_obj_align_to; re-center after 1x1/full-size source swaps
+    0xA01930FE,  # AP01 full-screen GIF creator
     0xA00CF8D8,  # lv_gif_set_src
     0xA00D86BA,  # webclient_perform
     0xA003F448,  # open
     0xA0026788,  # close
     0xA003F5F4,  # read
     0xA0027D94,  # write
+)
+
+# These callees were used by the first three-page prototype to append and
+# configure a new final slider page.  Stock firmware dynamically owns/deletes
+# that final page, so a safe payload must prove those calls are absent.
+FORBIDDEN_DYNAMIC_PAGE_CALLEES = (
+    0xA00C1EC6,  # lv_window_slider_add_window
+    0xA00BF942,  # lv_obj_set_width
+    0xA00C0060,  # lv_obj_set_size
+    0xA00C1400,  # lv_obj_add_flag; flag 1 hides the complete stock page
+    0xA00C1680,  # lv_obj_clear_flag; stock window flags stay untouched
 )
 
 
@@ -375,6 +392,18 @@ def build_payload(build_dir: Path, tool_prefix: str = "riscv64-elf-") -> Payload
     for address in VERIFIED_FIRMWARE_CALLEES:
         if f"{address:08x}" not in disassembly.lower():
             raise RuntimeError(f"verified firmware callee missing from disassembly: 0x{address:08x}")
+    for address in FORBIDDEN_DYNAMIC_PAGE_CALLEES:
+        if f"{address:08x}" in disassembly.lower():
+            raise RuntimeError(
+                f"unsafe dynamic-page callee present in disassembly: 0x{address:08x}"
+            )
+    # The two-page memory design permits exactly one newly created GIF object;
+    # page 7 must reuse the stock object.  Fail the offline build if a future
+    # edit silently adds another creator call.
+    if disassembly.lower().count("a01930fe") != 1:
+        raise RuntimeError("payload must contain exactly one AP01 GIF creator call")
+    if disassembly.lower().count("a00c3876") != 1:
+        raise RuntimeError("payload must contain exactly one AP01 GIF re-alignment call site")
     disassembly_file.write_text(disassembly)
 
     readelf_output = run(
@@ -392,6 +421,9 @@ def build_payload(build_dir: Path, tool_prefix: str = "riscv64-elf-") -> Payload
             name: f"0x{address:08x}" for name, address in sorted(symbols.items())
         },
         "verified_firmware_callees": [f"0x{x:08x}" for x in VERIFIED_FIRMWARE_CALLEES],
+        "verified_absent_dynamic_page_callees": [
+            f"0x{x:08x}" for x in FORBIDDEN_DYNAMIC_PAGE_CALLEES
+        ],
         "relocations": 0,
         "writable_globals": 0,
     }
@@ -623,17 +655,20 @@ def build_firmware(
             for start, end in differences
         ],
         "tmpfs_protocol": {
-            "slots": [
-                "/tmp/.ap01q0.gif",
-                "/tmp/.ap01q1.gif",
-                "/tmp/.ap01q2.gif",
-            ],
+            "generation_slots": 3,
+            "pages_per_generation": ["codex-claude", "kimi-deepseek"],
+            "slot_pattern": "/tmp/.ap01p{0,1,2}{m,o}.gif",
             "metadata": "/tmp/.ap01q.meta",
             "ack": "/tmp/.ap01q.ack",
+            "ui_state": "/tmp/.ap01q.ui",
+            "placeholder": "/tmp/.ap01blank.gif",
             "reason": "no verified rename ABI; three-slot published/applied exclusion with checksummed records",
         },
         "validation": {
             "http_status": 200,
+            "bundle_magic": "AP2B",
+            "bundle_version": 1,
+            "page_count": 2,
             "gif_magic": ["GIF89a"],
             "dimensions": [320, 240],
             "minimum_bytes": 13,
@@ -641,6 +676,36 @@ def build_firmware(
             "gif_trailer": "0x3b",
             "elf_relocations": 0,
             "writable_payload_globals": 0,
+            "runtime_only_idle_counter_reset": True,
+            "persisted_screen_settings_modified": False,
+            "stock_window_indices": [5, 7],
+            "stock_navigation_cycle": [6, 7, 5, 4, 3, 0],
+            "stock_window_roles": {
+                "0": "power",
+                "3": "time",
+                "4": "date",
+                "5": "weather",
+                "6": "settings",
+                "7": "pet",
+            },
+            "stock_window_content": {
+                "5_weather": "kimi-deepseek",
+                "7_pet": "codex-claude",
+            },
+            "stock_window_6_settings_untouched": True,
+            "stock_window_flags_modified": False,
+            "lv_obj_add_flag_calls": 0,
+            "lv_obj_clear_flag_calls": 0,
+            "dynamic_slider_windows_created": False,
+            "slider_page_limit_modified": False,
+            "saved_gif_parentage_revalidated": True,
+            "stock_page_7_gif_reused": True,
+            "new_gif_creator_calls": 1,
+            "post_source_change_center_alignment": True,
+            "center_alignment_call_sites": 1,
+            "selected_page_index_read_only": True,
+            "max_simultaneous_full_size_gif_decoders": 1,
+            "nonselected_decoder_source": "1x1 tmpfs GIF89a placeholder",
         },
     }
     manifest_path = build_dir / "ap01_realtime_patch_manifest.json"

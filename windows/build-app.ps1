@@ -11,12 +11,15 @@ Set-Location $Root
 Write-Host "CUKTECH Screen Controller · Windows build"
 Write-Host "==========================================="
 
-if (Get-Command py -ErrorAction SilentlyContinue) {
-    $Launcher = "py"
-    $LauncherArgs = @("-3")
+if ($env:pythonLocation -and (Test-Path (Join-Path $env:pythonLocation "python.exe"))) {
+    $Launcher = Join-Path $env:pythonLocation "python.exe"
+    $LauncherArgs = @()
 } elseif (Get-Command python -ErrorAction SilentlyContinue) {
     $Launcher = "python"
     $LauncherArgs = @()
+} elseif (Get-Command py -ErrorAction SilentlyContinue) {
+    $Launcher = "py"
+    $LauncherArgs = @("-3")
 } else {
     throw "Python 3.10+ was not found."
 }
@@ -37,8 +40,10 @@ if (-not $SkipDependencies) {
 $BuildRoot = Join-Path $Root ".build\windows"
 $DistRoot = Join-Path $Root "dist\windows"
 $Icon = Join-Path $BuildRoot "CUKTECHScreenController.ico"
+$LogoPng = Join-Path $Root "macos\AP01Logo.png"
+$ProviderIcons = Join-Path $Root "reference\provider-icons"
 New-Item -ItemType Directory -Force -Path $BuildRoot, $DistRoot | Out-Null
-& $Python -c "from PIL import Image; im=Image.open(r'macos/AP01Logo.png').convert('RGBA'); im.save(r'$Icon', format='ICO', sizes=[(16,16),(24,24),(32,32),(48,48),(64,64),(128,128),(256,256)])"
+& $Python -c "from PIL import Image; im=Image.open(r'$LogoPng').convert('RGBA'); im.save(r'$Icon', format='ICO', sizes=[(16,16),(24,24),(32,32),(48,48),(64,64),(128,128),(256,256)])"
 
 $VersionParts = $Version.Split('.')
 while ($VersionParts.Count -lt 4) { $VersionParts += "0" }
@@ -70,8 +75,8 @@ VSVersionInfo(
     --distpath $DistRoot `
     --workpath $BuildRoot `
     --specpath $BuildRoot `
-    --add-data "macos/AP01Logo.png;macos" `
-    --add-data "reference/provider-icons;reference/provider-icons" `
+    --add-data "$LogoPng;macos" `
+    --add-data "$ProviderIcons;reference/provider-icons" `
     --hidden-import ap01_prepare_screen `
     --hidden-import ap01_screen_bridge `
     --hidden-import ap01_wifi_bridge `

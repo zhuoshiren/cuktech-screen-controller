@@ -3,8 +3,11 @@
 AP01 实时加载器保存的是一个包含**固定 IPv4 地址**的完整 URL，例如：
 
 ```text
-http://192.168.31.100:8765/screen.gif
+http://192.168.31.100:8765/screen.ap2b
 ```
+
+真机验证的双页加载器使用 `/screen.ap2b`；旧单页加载器使用 `/screen.gif`。
+无论哪一种，都要以已安装固件中写入的完整地址为准。
 
 它不会自动寻找电脑，也不会在电脑重新获取 DHCP 地址后自动改写这个 URL。因此，
 **第一次安装实时加载器前，必须先固定运行 Bridge 的电脑地址。** 这不是端口转发，
@@ -57,19 +60,20 @@ macOS 可能向路由器使用私有 MAC。路由器中的 DHCP 保留必须绑�
 
 ```bash
 curl --noproxy '*' http://192.168.31.100:8765/health
-curl --noproxy '*' -I http://192.168.31.100:8765/screen.gif
+curl --noproxy '*' -I http://192.168.31.100:8765/screen.ap2b
 ```
 
-应看到 `/health` 返回成功，`screen.gif` 返回 `HTTP 200` 和 `Content-Type: image/gif`。
+应看到 `/health` 返回成功，`screen.ap2b` 返回 `HTTP 200` 和
+`Content-Type: application/octet-stream`。
 安装完成并重启后，还必须在 Bridge 日志看到来自 AP01 的：
 
 ```text
-GET /screen.gif 200
+GET /screen.ap2b 200
 ```
 
 ## 如果电脑 IP 后来改变
 
-典型现象是软件本机 `/health` 正常，但日志里没有 AP01 的 `GET /screen.gif`，屏幕仍
+典型现象是软件本机 `/health` 正常，但日志里没有 AP01 的 `GET /screen.ap2b`，屏幕仍
 显示旧画面、后备画面或“未连接”。按下面顺序处理：
 
 | 处理方法 | 是否写 AP01 Flash | 何时使用 |
@@ -84,12 +88,12 @@ GET /screen.gif 200
 如果必须改用新地址：
 
 1. 先在路由器中固定新地址；
-2. 再验证新地址的 `/health` 与 `/screen.gif`；
+2. 再验证新地址的 `/health` 与 `/screen.ap2b`；
 3. 从已验证的原厂/兼容输入镜像重新生成加载器，不能把已经 Patch 的实时镜像再次
    传给 `ap01_custom_ota.py`；
 4. 重新核对型号 `njcuk.enstor.ap01` 与固件 `1.0.2_0031`；
 5. 安装前由用户明确确认，再进行一次 OTA Flash 写入；
-6. 重启后确认新的 `GET /screen.gif 200`。
+6. 重启后确认新的 `GET /screen.ap2b 200`。
 
 更换加载地址导致的重新安装只需要写 Flash 一次。之后换图、动态 GIF 和
 Claude/Codex 额度刷新仍写入 `/tmp/.ap01q*.gif` RAM 槽位，不会随着每次刷新反复

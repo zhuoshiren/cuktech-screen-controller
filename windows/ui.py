@@ -61,10 +61,10 @@ from windows.runtime import (
 
 
 VERSION = "0.4.1"
-WINDOWS_GUIDE = "https://github.com/wqytommy666/cuktech-screen-controller/blob/main/docs/WINDOWS_GUIDE.zh-CN.md"
-OTA_GUIDE = "https://github.com/wqytommy666/cuktech-screen-controller/blob/main/docs/AP01_FDS_NO_GATEWAY_SOLUTION.zh-CN.md"
+WINDOWS_GUIDE = "https://github.com/zhuoshiren/cuktech-screen-controller/blob/main/docs/WINDOWS_GUIDE.zh-CN.md"
+OTA_GUIDE = "https://github.com/zhuoshiren/cuktech-screen-controller/blob/main/docs/AP01_FDS_NO_GATEWAY_SOLUTION.zh-CN.md"
 AGENT_PROMPT = """请使用这个公开仓库帮我配置酷态科 AP01 万向屏：
-https://github.com/wqytommy666/cuktech-screen-controller
+https://github.com/zhuoshiren/cuktech-screen-controller
 
 开始前先阅读 AGENTS.md、README.zh-CN.md、docs/WINDOWS_GUIDE.zh-CN.md 和
 skills/cuktech-ap01-screen-kit/SKILL.md。我使用 Windows，请先运行
@@ -476,12 +476,12 @@ class OTADeploymentDialog(QDialog):
         verify_card, verify_layout = _card()
         verify_row = QHBoxLayout()
         verify_text = QVBoxLayout()
-        verify_text.addWidget(_section("3  仅下载验证"))
-        verify_text.addWidget(_muted("让 AP01 下载并校验 MD5；不会安装，也不会写入启动分区。"))
+        verify_text.addWidget(_section("3  电脑端 CDN 回读验证"))
+        verify_text.addWidget(_muted("电脑下载完整对象并核对 BFNP、大小、SHA-256 与 MD5；不会连接 AP01。"))
         verify_row.addLayout(verify_text, 1)
         self.copy_button = QPushButton("复制完整链接")
         self.copy_button.clicked.connect(self.copy_ticket)
-        self.verify_button = QPushButton("开始下载验证")
+        self.verify_button = QPushButton("开始 CDN 回读验证")
         self.verify_button.setObjectName("primary")
         self.verify_button.clicked.connect(self.verify_download)
         self.install_button = QPushButton("验证后确认安装")
@@ -662,7 +662,7 @@ class OTADeploymentDialog(QDialog):
         self.firmware_label.setText(f"{firmware.name} · {firmware.stat().st_size / 1024 / 1024:.2f} MB")
         self.hash_label.setText(f"SHA-256  {digest}")
         self.ticket_label.setText(str(ticket))
-        self.status.setText("无网关部署包已就绪；请执行仅下载验证")
+        self.status.setText("无网关部署包已就绪；请执行电脑端 CDN 回读验证")
         self.append_log(output + "\n无网关部署包与临时票据已通过本机预检。\n")
 
     def ticket_generated(self, output: str) -> None:
@@ -675,24 +675,21 @@ class OTADeploymentDialog(QDialog):
         if not self.firmware or not self.ticket:
             self.status.setText("请先选择固件并生成或导入票据")
             return
-        if not self.credentials and not os.environ.get("CUKTECH_MI_CREDENTIALS"):
-            self.status.setText("下载验证需要先选择 AP01 所属米家账号的登录 JSON")
-            return
-        arguments = [str(self.firmware), "--download-only", "--ota-url-file", str(self.ticket), "--timeout", "360"]
-        self.run_operation("正在让 AP01 仅下载并校验…", lambda: self.helper(arguments), self.download_verified)
+        arguments = [str(self.firmware), "--verify-download", "--ota-url-file", str(self.ticket), "--timeout", "360"]
+        self.run_operation("正在由这台电脑回读 OTA CDN 并逐字节校验…", lambda: self.helper(arguments), self.download_verified)
 
     def download_verified(self, output: str) -> None:
         self.download_verified_ok = True
         self.install_button.setEnabled(True)
-        self.status.setText("下载校验完成 · 未安装、未切换启动分区")
+        self.status.setText("CDN 回读校验完成 · 尚未向 AP01 下发 OTA")
         self.status.setObjectName("successText")
         self.status.style().unpolish(self.status)
         self.status.style().polish(self.status)
-        self.append_log(output + "\nAP01 下载验证通过；本次没有安装固件。\n")
+        self.append_log(output + "\n电脑回读文件与本地固件逐字节一致；未连接 AP01、未安装固件。\n")
 
     def install_firmware(self) -> None:
         if not self.download_verified_ok or not self.firmware or not self.ticket:
-            self.status.setText("请先完成仅下载验证")
+            self.status.setText("请先完成电脑端 CDN 回读验证")
             return
         answer = QMessageBox.warning(
             self,

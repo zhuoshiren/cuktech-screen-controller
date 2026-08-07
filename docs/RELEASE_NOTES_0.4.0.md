@@ -1,5 +1,9 @@
 # CUKTECH Screen Controller 0.4.0
 
+> Safety correction for current users: the `download-only` step described in
+> these historical notes is disabled. Use host-side `--verify-download`, which
+> reads the full CDN object without contacting AP01.
+
 ## 中文
 
 ### 无网关首次部署

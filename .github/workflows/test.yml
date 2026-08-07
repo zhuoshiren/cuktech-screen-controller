@@ -4,6 +4,9 @@ on:
   push:
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
   python:
     runs-on: ubuntu-latest
@@ -14,7 +17,8 @@ jobs:
           python-version: '3.11'
       - run: python -m pip install --upgrade pip
       - run: python -m pip install -r requirements.txt
-      - run: python -m unittest -v test_quota_dashboard.py test_ap01_prepare_screen.py test_ap01_install_firmware.py test_ap01_fds_relay.py test_ap01_wifi_bridge.py test_platform_support.py test_windows_runtime.py
+      - run: python -m unittest discover -v
+      - run: python scripts/render-two-page-demo.py
       - run: |
           python ap01_prepare_screen.py docs/images/quota-dashboard-preview.png /tmp/ap01-screen.gif
           python - <<'PY'
@@ -43,7 +47,8 @@ jobs:
       - name: Run the cross-platform Python tests
         shell: powershell
         run: |
-          .\.venv\Scripts\python.exe -m unittest -v test_quota_dashboard.py test_ap01_prepare_screen.py test_ap01_install_firmware.py test_ap01_fds_relay.py test_ap01_wifi_bridge.py test_platform_support.py test_windows_runtime.py
+          .\.venv\Scripts\python.exe -m unittest discover -v
+          .\.venv\Scripts\python.exe scripts\render-two-page-demo.py
       - name: Smoke-test the Windows UI modules
         shell: powershell
         env:

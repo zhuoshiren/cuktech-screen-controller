@@ -74,7 +74,7 @@ def redact_urls(value: str) -> str:
     return URL_RE.sub(replace, value)
 
 
-def build_fallback_gif(output: Path) -> Path:
+def build_fallback_gif(output: Path, bridge_path: str = "/screen.gif") -> Path:
     """Create a tiny deterministic two-frame compatibility screen."""
 
     frames: list[Image.Image] = []
@@ -87,7 +87,7 @@ def build_fallback_gif(output: Path) -> Path:
         draw.line((55, 105, 80, 105), fill=accent, width=5)
         draw.text((112, 80), "CUKTECH", fill="#F8FAFC", stroke_width=1)
         draw.text((112, 112), "CONTROLLER READY", fill=accent)
-        draw.text((50, 164), "Waiting for /screen.gif", fill="#94A3B8")
+        draw.text((50, 164), f"Waiting for {bridge_path}", fill="#94A3B8")
         frames.append(image)
     output.parent.mkdir(parents=True, exist_ok=True)
     frames[0].save(
@@ -251,7 +251,8 @@ class RelayBuilder:
         destination = self.cache_dir / self._cache_key(request)
         with tempfile.TemporaryDirectory(prefix="ap01-relay-", dir=self.cache_dir) as temporary_name:
             temporary = Path(temporary_name)
-            fallback = build_fallback_gif(temporary / "fallback.gif")
+            bridge_path = "/screen.ap2b" if request.bridge_url.endswith("/screen.ap2b") else "/screen.gif"
+            fallback = build_fallback_gif(temporary / "fallback.gif", bridge_path)
             compat = temporary / "screen-compat.bin"
             realtime = temporary / "screen-realtime.bin"
             build_dir = temporary / "realtime-build"

@@ -75,12 +75,12 @@ for interface in en0 en1; do
     [[ -n "$LAN_IP" ]] && break
 done
 if [[ -n "$LAN_IP" ]]; then
-    ok "局域网地址" "http://$LAN_IP:8765/screen.gif"
+    ok "局域网地址" "单页 http://$LAN_IP:8765/screen.gif · 双页 http://$LAN_IP:8765/screen.ap2b"
 else
     warn "局域网地址" "未找到 Wi-Fi IPv4；请连接与 AP01 相同的 Wi-Fi"
 fi
 
-if [[ -f "$ARTIFACTS/quota-dashboard.gif" || -f "$ARTIFACTS/custom-screen.gif" ]]; then
+if [[ -f "$ARTIFACTS/quota-dashboard.gif" || -f "$ARTIFACTS/custom-screen.gif" || -f "$ARTIFACTS/coding-balances.ap2b" ]]; then
     ok "屏幕文件" "已生成 GIF"
 else
     warn "屏幕文件" "等待首次生成"
@@ -88,11 +88,11 @@ fi
 
 LOG="$ARTIFACTS/ap01_launchd.log"
 if [[ -f "$LOG" ]]; then
-    REQUEST="$(grep 'GET /screen.gif' "$LOG" 2>/dev/null | tail -1 || true)"
+    REQUEST="$(grep -E 'GET /screen\.(gif|ap2b)' "$LOG" 2>/dev/null | tail -1 || true)"
     if [[ -n "$REQUEST" ]]; then
         ok "AP01 请求" "$REQUEST"
     else
-        warn "AP01 请求" "日志中还没有 GET /screen.gif；检查 Wi-Fi 或实时加载器"
+        warn "AP01 请求" "日志中还没有 GET /screen.gif 或 /screen.ap2b；检查 Wi-Fi 或实时加载器"
     fi
 else
     warn "AP01 请求" "尚未生成 Bridge 日志"

@@ -41,6 +41,10 @@ cp "$HERE/install-launch-agent.sh" "$RUNTIME/macos/"
 cp "$HERE/uninstall-launch-agent.sh" "$RUNTIME/macos/"
 cp "$HERE/diagnose.sh" "$RUNTIME/macos/"
 cp "$HERE/store_mi_home_keychain.py" "$RUNTIME/macos/"
+xcrun swiftc -target arm64-apple-macosx14.0 \
+  -module-cache-path "$ROOT/.build/ModuleCache" \
+  "$HERE/store-mi-home-keychain.swift" \
+  -o "$RUNTIME/macos/store-mi-home-keychain"
 chmod +x "$RUNTIME/macos/"*.sh
 echo "quota" > "$RUNTIME/artifacts/ap01-mode"
 
@@ -147,10 +151,10 @@ CUKTECH Screen Controller $VERSION
 9. 日常画面通过 Wi-Fi/LAN 传输，不需要 USB 数据线。
 
 完整零基础教程：
-https://github.com/wqytommy666/cuktech-screen-controller/blob/main/docs/BEGINNER_GUIDE.zh-CN.md
+https://github.com/zhuoshiren/cuktech-screen-controller/blob/main/docs/BEGINNER_GUIDE.zh-CN.md
 
 安装前准备与联网说明：
-https://github.com/wqytommy666/cuktech-screen-controller/blob/main/docs/PREPARATION_CHECKLIST.zh-CN.md
+https://github.com/zhuoshiren/cuktech-screen-controller/blob/main/docs/PREPARATION_CHECKLIST.zh-CN.md
 
 日常画面刷新只写 AP01 的 /tmp RAM 槽位，不会反复刷写 Flash。
 TXT

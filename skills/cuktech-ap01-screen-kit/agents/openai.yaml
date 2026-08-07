@@ -1,4 +1,4 @@
 interface:
-  display_name: "酷态科 AP01 自定义屏幕"
-  short_description: "制作、部署和实时刷新 AP01 自定义屏幕与额度面板"
-  default_prompt: "Use $cuktech-ap01-screen-kit to create and deploy a custom AP01 screen or Claude/Codex quota dashboard."
+  display_name: "酷态科 AP01 双页信息屏"
+  short_description: "构建、刷入并安全维护 AP01 双页额度与自定义屏幕"
+  default_prompt: "Use $cuktech-ap01-screen-kit to diagnose my CUKTECH AP01 and safely deploy the verified two-page Codex, Claude Code, Kimi Code, and DeepSeek dashboard."

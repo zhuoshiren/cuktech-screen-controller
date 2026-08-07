@@ -4,8 +4,12 @@ The AP01 real-time loader stores a complete URL with a **literal IPv4
 address**, for example:
 
 ```text
-http://192.168.31.100:8765/screen.gif
+http://192.168.31.100:8765/screen.ap2b
 ```
+
+The verified two-page loader uses `/screen.ap2b`; legacy single-page loaders
+use `/screen.gif`. Apply the same reservation procedure to the path embedded
+in the installed image.
 
 It does not discover the computer automatically, and the embedded URL does not
 change when DHCP gives the computer another address. **Reserve the Bridge
@@ -64,21 +68,21 @@ If the planned loader address is `192.168.31.100`, verify at least:
 
 ```bash
 curl --noproxy '*' http://192.168.31.100:8765/health
-curl --noproxy '*' -I http://192.168.31.100:8765/screen.gif
+curl --noproxy '*' -I http://192.168.31.100:8765/screen.ap2b
 ```
 
-`/health` must succeed, and `screen.gif` must return HTTP 200 with
-`Content-Type: image/gif`. After installation and reboot, the Bridge log must
+`/health` must succeed, and `screen.ap2b` must return HTTP 200 with
+`Content-Type: application/octet-stream`. After installation and reboot, the Bridge log must
 also contain an AP01 request such as:
 
 ```text
-GET /screen.gif 200
+GET /screen.ap2b 200
 ```
 
 ## If the computer's IP changes later
 
 A common symptom is a healthy local `/health` endpoint but no AP01
-`GET /screen.gif` request. The display keeps an old image, a fallback, or a
+`GET /screen.ap2b` request. The display keeps an old image, a fallback, or a
 disconnected page. Recover in this order:
 
 | Recovery | AP01 Flash write? | Use when |
@@ -94,12 +98,12 @@ unused; duplicate IPs can break LAN access for the whole computer.
 When a new address is unavoidable:
 
 1. reserve the new address first;
-2. verify `/health` and `/screen.gif` through that address;
+2. verify `/health` and `/screen.ap2b` through that address;
 3. rebuild from a reviewed stock/compatibility input image; never pass an
    already real-time-patched image through `ap01_custom_ota.py`;
 4. recheck model `njcuk.enstor.ap01` and firmware `1.0.2_0031`;
 5. obtain explicit user confirmation immediately before the OTA Flash write;
-6. reboot and verify a new `GET /screen.gif 200` request.
+6. reboot and verify a new `GET /screen.ap2b 200` request.
 
 Changing the embedded address requires one loader installation. Later images,
 animated GIFs, and Claude/Codex quota updates still rotate through the

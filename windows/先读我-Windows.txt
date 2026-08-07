@@ -19,7 +19,7 @@ JSON 文件，格式参考 mi-credentials.example.json；文件不会被复制�
 也不要提交到 GitHub 或发给他人。
 
 项目主页：
-https://github.com/wqytommy666/cuktech-screen-controller
+https://github.com/zhuoshiren/cuktech-screen-controller
 
 Windows 教程：
-https://github.com/wqytommy666/cuktech-screen-controller/blob/main/docs/WINDOWS_GUIDE.zh-CN.md
+https://github.com/zhuoshiren/cuktech-screen-controller/blob/main/docs/WINDOWS_GUIDE.zh-CN.md

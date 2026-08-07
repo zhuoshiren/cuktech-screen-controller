@@ -4,9 +4,9 @@
 
   # CUKTECH Screen Controller
 
-  **Native macOS and Windows controllers for the CUKTECH AP01 display.**
+  **Custom screens and a verified two-page coding dashboard for CUKTECH AP01.**
 
-  Custom images and GIFs · Live Claude/Codex quotas · Local Wi-Fi refresh · RAM-backed updates
+  Codex + Claude Code · Kimi Code + DeepSeek · LAN refresh · RAM-backed updates
 
   [![Python](https://img.shields.io/badge/Python-3.9%2B-3776AB?logo=python&logoColor=white)](#advanced-and-manual-setup)
   [![Toolkit](https://img.shields.io/badge/Toolkit-macOS%20%7C%20Windows-159FCB)](#platform-support)
@@ -21,6 +21,54 @@
 </div>
 
 ---
+
+> [!NOTE]
+> This is a modified community fork of
+> [`wqytommy666/cuktech-screen-controller`](https://github.com/wqytommy666/cuktech-screen-controller),
+> not a from-scratch replacement. It preserves the upstream Git history and
+> MIT copyright notice. See [upstream attribution and fork changes](NOTICE.md).
+
+## Verified on real hardware: two coding-balance pages
+
+This is a working device implementation, not a concept mockup. The owner has
+verified both pages on `njcuk.enstor.ap01 / 1.0.2_0031` after repeated build,
+installation and recovery tests. The preview below uses synthetic values and
+contains no account balance, token, device address or Mi Home data.
+
+![CUKTECH AP01 two-page Codex Claude Kimi DeepSeek dashboard](docs/images/two-page-coding-dashboard.png)
+
+| Knob page | Content | Source |
+| --- | --- | --- |
+| stock virtual-pet page, `window 7` | Codex Pro + Claude Code Max | official Codex `app-server`; official Claude Code `statusLine` |
+| stock weather page, `window 5` | Kimi Code Allegro + DeepSeek | local Kimi Code OAuth; official DeepSeek balance API |
+
+The real carousel order is `Settings 6 → Codex/Claude 7 → Kimi/DeepSeek 5 → Date 4 → Time 3 → Power 0 → Settings 6`.
+This mapping matters: `window 0` is Power, not Weather. Targeting the wrong
+window is what makes a custom page appear beside Settings or overwrite Power.
+
+Search terms: CUKTECH 10 charging station display, AP01 firmware mod, AP01
+custom screen, Codex/Claude Code/Kimi Code balance dashboard.
+
+The implementation uses an **AP2B two-page bundle with one active GIF decoder**.
+Page 1 reuses the stock pet GIF object; page 2 adds one object to the stock
+Weather page. The non-selected page points at a 1×1 tmpfs placeholder. This
+avoids the white screens caused by multiple full-size decoders while keeping
+Settings, Date, Time and Power intact.
+
+See the [real-device two-page runbook](skills/cuktech-ap01-screen-kit/references/two-page-coding-dashboard.md)
+for reproduction, diagnostics and recovery.
+
+> [!CAUTION]
+> Binary offsets support only the exact model/version above. This repository
+> does not distribute CUKTECH/Xiaomi firmware and never commits user firmware,
+> signed OTA URLs, credentials, cookies, DIDs or LAN addresses.
+
+> [!IMPORTANT]
+> The verified two-page recipe does not read Claude Desktop or browser cookies:
+> it accepts only Claude Code's official `statusLine.rate_limits` input. The
+> repository retains an older cookie-based one-page collector for compatibility;
+> it is excluded from the Skill's recommended workflow. Signed OTA URLs are
+> accepted only from private files, never from command-line values or logs.
 
 ## Choose how you want to use it
 
@@ -39,7 +87,7 @@ CUKTECH Screen Controller provides two ways to control the AP01 display.
 | Best for | Everyday use with a native UI | First-time setup, diagnostics and deep customization |
 | Interface | CUKTECH Screen Controller desktop app | Claude Code, Codex, OpenCode, WorkBuddy or another terminal-capable agent |
 | Custom images | Choose PNG, JPG or GIF and push | Convert, validate and deploy through repository tools |
-| Quota dashboard | Live Claude and Codex usage on both systems | Configurable renderer with the same account collectors |
+| Quota dashboard | Live Claude and Codex on both systems | Four-provider two-page workflow on macOS |
 | First-time loader | Gateway-free package, BFNP preflight and confirmed install | Complete compatibility, build and installation workflow |
 | Daily refresh | Wi-Fi update to AP01 RAM | Wi-Fi update to AP01 RAM |
 
@@ -61,7 +109,7 @@ See the [Windows guide](docs/WINDOWS_GUIDE.md).
 ## Method 1 — Install the desktop app
 
 Download the latest **CUKTECH Screen Controller** package from
-[GitHub Releases](https://github.com/wqytommy666/cuktech-screen-controller/releases/latest).
+[GitHub Releases](https://github.com/zhuoshiren/cuktech-screen-controller/releases/latest).
 
 - **Windows 10/11 x64:** extract
   `CUKTECH-Screen-Controller-0.4.1-Windows-x64.zip`, then double-click
@@ -88,7 +136,8 @@ first run.
 
 > [!IMPORTANT]
 > **Reserve the Bridge computer's IP before the first loader installation.**
-> AP01 stores a literal `http://COMPUTER_IP:8765/screen.gif` URL and does not
+> AP01 stores a literal `http://COMPUTER_IP:8765/screen.ap2b` URL for the
+> two-page loader (legacy one-page builds use `/screen.gif`) and does not
 > follow DHCP changes. Prefer a router DHCP reservation. If the address later
 > changes, restore the old address first (no Flash write); only when that is
 > impossible should you stabilize a new address and rebuild/reinstall the
@@ -108,9 +157,9 @@ first run.
   LAN access to TCP port `8765`;
 - before a first loader installation, have the AP01 owner's Mi Home account
   available and verify model `njcuk.enstor.ap01` and firmware `1.0.2_0031`;
-- keep the host awake and logged in for live refreshes. If it becomes
-  unreachable, the current live GIF self-expires to a disconnected page after
-  about seven minutes;
+- keep the host awake and logged in for live refreshes. The current persistent
+  two-page mode keeps the last rendered image while the host is unreachable;
+  use the on-screen refresh timestamp to judge freshness;
 - **before installing the loader**, reserve the host's DHCP address in the
   router. On macOS keep Private Wi-Fi Address fixed rather than rotating and
   bind the MAC currently shown by the router;
@@ -123,7 +172,7 @@ See the full [preparation and connectivity checklist](docs/PREPARATION_CHECKLIST
 
 The app can show Bridge status, switch between quota and custom artwork,
 preserve animated GIFs, select `contain` / `cover` / `stretch`, and automate
-the gateway-free package, BFNP preflight, download-only verification and
+the gateway-free package, BFNP preflight, host-side CDN readback verification and
 explicitly confirmed installation.
 
 <div align="center">
@@ -144,13 +193,13 @@ Copy this repository URL into Claude Code, Codex, OpenCode, WorkBuddy, or
 another coding agent that can read GitHub and run terminal commands:
 
 ```text
-https://github.com/wqytommy666/cuktech-screen-controller
+https://github.com/zhuoshiren/cuktech-screen-controller
 ```
 
 Suggested prompt:
 
 ```text
-Use https://github.com/wqytommy666/cuktech-screen-controller as the source of
+Use https://github.com/zhuoshiren/cuktech-screen-controller as the source of
 truth. Read AGENTS.md, README.md and
 skills/cuktech-ap01-screen-kit/SKILL.md first.
 
@@ -167,8 +216,9 @@ address remains unchanged. If the router cannot reserve it, explain that AP01
 stores a literal IP: later address changes require restoring the old IP, or
 stabilizing a new IP and rebuilding/reinstalling the loader with confirmation.
 
-Then install the Bridge and configure either the automatic Claude/Codex quota
-dashboard or my custom image. Verify /health and an AP01 GET /screen.gif 200 request, and
+Then reproduce the verified two-page layout: Codex + Claude Code on page one,
+Kimi Code + DeepSeek on page two. Use only official local sessions and keep the
+DeepSeek key in macOS Keychain. Verify /health and an AP01 GET /screen.ap2b 200 request, and
 enable automatic startup for the current operating system. If the loader is missing, build
 and validate the exact compatible image first and ask before installing it.
 Normal screen refreshes must use the RAM-backed /tmp slots and must not
@@ -194,21 +244,22 @@ and setup/diagnostic commands for both platforms:
 
 - **One-time loader installation:** writes firmware Flash once and supports
   only model `njcuk.enstor.ap01` on firmware `1.0.2_0031`.
-- **Normal image and quota refreshes:** rotate GIF files through
-  `/tmp/.ap01q*.gif`, which is RAM-backed. They do not rewrite firmware or
+- **Normal image and quota refreshes:** rotate two-page GIFs through
+  `/tmp/.ap01p{0,1,2}{m,o}.gif`, which is RAM-backed. They do not rewrite firmware or
   resource partitions.
-- If the Bridge computer goes offline, AP01 shows a disconnected page after
-  about seven minutes and resumes the live dashboard when the Bridge returns.
+- If the Bridge computer goes offline, persistent two-page mode keeps the last
+  successful image and resumes refreshes when the Bridge returns. Check the
+  displayed refresh timestamp before treating the values as current.
 
 ### How to tell whether quota data is current
 
-- the app reads the signed-in Claude/Codex sources every five minutes;
+- the Bridge reads the four official local/API sources every five minutes;
 - each live plan badge includes a green status dot and the latest successful
   refresh time for comparison with the AP01 clock;
-- a collection failure atomically replaces old values with a large
-  **Disconnected / Please connect** screen;
-- the delivered live GIF self-expires after roughly seven minutes, so even a
-  powered-off computer cannot leave an apparently current quota card forever;
+- a temporary provider failure keeps its last successful value in persistent
+  mode and records the error in local `/health` and the sanitized JSON;
+- when the host is off, the on-screen refresh time stops advancing. Persistent
+  display is intentional; do not interpret an old timestamp as a fresh value;
 - the next successful refresh automatically restores the live dashboard.
 
 ## What is this?
@@ -219,7 +270,7 @@ workflow for:
 
 - turning any image into a lightweight AP01-safe animated GIF;
 - designing a high-legibility 320×240 status screen;
-- rendering live quota dashboards from signed-in Claude Desktop and Codex;
+- rendering live balances from Codex, Claude Code, Kimi Code and DeepSeek;
 - serving updates from a macOS or Windows computer over local Wi-Fi;
 - installing the one-time AP01 `1.0.2_0031` real-time loader;
 - changing content later without another firmware install.
@@ -230,10 +281,10 @@ any screen you want.
 
 ## Highlights
 
-| Custom screen | Live quota dashboard | Lightweight runtime |
+| Custom screen | Two-page coding dashboard | Lightweight runtime |
 | --- | --- | --- |
-| Convert artwork to a verified 320×240 GIF89a asset. | Claude 5-hour / week / Fable 5 and Codex 5-hour / week. | Bounded animation, typically under 90 KB. |
-| `contain`, `cover`, and `stretch` layouts. | Dark OLED-oriented UI, provider icons, reset clocks, Chinese labels. | AP01 stores updates in RAM-backed `/tmp`, not its resource partition. |
+| Convert artwork to a verified 320×240 GIF89a asset. | Codex/Claude strict limits, Kimi week/5-hour, and DeepSeek balance. | Bounded animation, typically under 90 KB. |
+| `contain`, `cover`, and `stretch` layouts. | Codex/Claude and Kimi/DeepSeek each occupy a physical knob page. | AP01 stores updates in RAM-backed `/tmp`, not its resource partition. |
 
 ## Architecture
 
@@ -241,7 +292,7 @@ any screen you want.
 flowchart LR
   A["Custom art or data sources"] --> B["macOS / Windows renderer and Bridge"]
   B -->|"GIF89a · 320×240 · LAN HTTP"| C["AP01 real-time loader"]
-  C --> D["/tmp/.ap01q0.gif\n/tmp/.ap01q1.gif\n/tmp/.ap01q2.gif"]
+  C --> D["/tmp/.ap01p{0,1,2}{m,o}.gif\nthree two-page RAM generations"]
   D --> E["LVGL virtual-pet screen"]
 ```
 
@@ -253,7 +304,7 @@ fetched over Wi-Fi and rotated through RAM-backed files.
 ### 1. Create a local environment
 
 ```bash
-git clone https://github.com/wqytommy666/cuktech-screen-controller.git
+git clone https://github.com/zhuoshiren/cuktech-screen-controller.git
 cd cuktech-screen-controller
 python3 -m venv .venv
 .venv/bin/python -m pip install -r requirements.txt
@@ -279,27 +330,46 @@ container; animated GIFs retain visible motion with bounded frame count and
 timing. Replace `artifacts/screen.gif` atomically whenever you want new content;
 the AP01 will retrieve it on its next refresh.
 
-### 3. Render a Claude + Codex dashboard
+### 3. Run the four-provider two-page dashboard (macOS)
 
-Sign in to Claude Desktop and Codex on the computer running the bridge, then run:
+Sign in to Codex, Claude Code and Kimi Code. Store the DeepSeek API key directly
+in macOS Keychain through the secure prompt:
 
 ```bash
-.venv/bin/python quota_dashboard.py
-.venv/bin/python -u ap01_wifi_bridge.py --bind 0.0.0.0 --port 8765 --interval 300
+swift macos/store-deepseek-key.swift
 ```
 
-Open `artifacts/quota-dashboard@2x.png` to inspect the design preview. The
-bridge exposes:
+Claude usage comes from the official `statusLine` input. Add this side effect
+to the existing status-line script after it has captured stdin as `$input`;
+continue rendering the original status line from that same variable:
+
+```bash
+printf '%s' "$input" | /ABSOLUTE/REPO/.venv/bin/python \
+  /ABSOLUTE/REPO/claude_statusline_cache.py 2>/dev/null || true
+```
+
+Allow-list the AP01 private IPv4 and start the two-page bridge:
+
+```bash
+printf '%s\n' 'AP01_PRIVATE_IP' > artifacts/ap01-ip
+printf '%s\n' 'coding' > artifacts/ap01-mode
+./macos/ap01-bridge-runner.sh
+```
+
+Inspect `artifacts/coding-balances-codex-claude@2x.png` and
+`artifacts/coding-balances-kimi-deepseek@2x.png`. The bridge exposes:
 
 ```text
 http://COMPUTER_LAN_IP:8765/screen.gif
-http://COMPUTER_LAN_IP:8765/api/v1/quota
+http://COMPUTER_LAN_IP:8765/screen.ap2b
+http://127.0.0.1:8765/api/v1/balances
 http://COMPUTER_LAN_IP:8765/health
 ```
 
-Automatic account discovery supports both platforms: macOS reads the Claude
-Safe Storage key through Keychain, while Windows decrypts the current user's
-Claude Electron profile with DPAPI. Codex uses its local `app-server` on both.
+The JSON endpoint is localhost-only. LAN content is restricted to the AP01
+allow-list and local host addresses. See the
+[two-page real-device runbook](skills/cuktech-ap01-screen-kit/references/two-page-coding-dashboard.md)
+for complete provider setup and validation.
 
 ## First-time real-time firmware setup
 
@@ -325,18 +395,25 @@ verify the reserved address before generating the firmware.
   --input artifacts/ap01-1.0.2_0031-screen-compat.bin \
   --output artifacts/ap01-1.0.2_0031-screen-realtime.bin \
   --build-dir artifacts/realtime-build \
-  --url http://COMPUTER_LAN_IP:8765/screen.gif \
+  --url http://COMPUTER_LAN_IP:8765/screen.ap2b \
   --refresh-seconds 300
 
-# Validate transport, then install the exact prebuilt image.
+# Upload, then have this computer read the entire CDN object back. This does not contact AP01.
 .venv/bin/python ap01_install_firmware.py \
-  artifacts/ap01-1.0.2_0031-screen-realtime.bin --download-only
+  artifacts/ap01-1.0.2_0031-screen-realtime.bin \
+  --upload-only --url-output /tmp/ap01-ota-url.txt
 .venv/bin/python ap01_install_firmware.py \
-  artifacts/ap01-1.0.2_0031-screen-realtime.bin --install
+  artifacts/ap01-1.0.2_0031-screen-realtime.bin \
+  --verify-download --ota-url-file /tmp/ap01-ota-url.txt
+
+# Install the exact same image only after the owner explicitly confirms.
+.venv/bin/python ap01_install_firmware.py \
+  artifacts/ap01-1.0.2_0031-screen-realtime.bin \
+  --install --ota-url-file /tmp/ap01-ota-url.txt
 ```
 
 Start the bridge before the final installation. A bridge log such as
-`AP01_IP "GET /screen.gif" 200` confirms end-to-end operation.
+`AP01_IP "GET /screen.ap2b" 200` confirms two-page end-to-end operation.
 
 ### Xiaomi FDS upload prerequisite
 
@@ -350,7 +427,7 @@ arbitrary firmware uploads and builds only the reviewed loader from a
 SHA-256-pinned `1.0.2_0031` stock image.
 
 The app checks model/version and online state, downloads and verifies the
-BFNP image, performs a download-only device validation, and finally asks for
+BFNP image, reads the complete CDN object back on the host, and finally asks for
 explicit install confirmation. The user's own Mi Home session still sends the
 OTA command to their own AP01. After that one-time step, all screens use LAN
 and RAM; neither the shared relay nor a gateway is needed for daily use.
@@ -384,17 +461,19 @@ On the uploader's Mac/account:
 If automatic discovery is ambiguous, add a real gateway identity owned by
 that account: `--fds-did DID --fds-model lumi.gateway.MODEL`.
 
-On the AP01 owner's Mac/account, immediately validate download without
-installing:
+On the owner's Mac, immediately perform the host-side readback without
+contacting AP01:
 
 ```bash
 .venv/bin/python ap01_install_firmware.py \
   artifacts/screen-realtime.bin \
-  --download-only --ota-url-file /path/to/ap01-ota-url.txt --timeout 360
+  --verify-download --ota-url-file /path/to/ap01-ota-url.txt --timeout 360
 ```
 
-The signed URL is transferable, but temporary. Both sides must use the same
-BIN bytes; do not rebuild between upload and download validation.
+The command downloads the whole object from the official OTA CDN and compares
+BFNP, size, SHA-256 and MD5. It creates no Mi Home session and sends no OTA to
+AP01. The old `--download-only` path is disabled because AP01 1.0.2_0031 may
+continue into installation. Both sides must use identical BIN bytes.
 
 For an agent-ready Chinese runbook with diagnostics and completion criteria,
 see [AP01 FDS solution without a local gateway](docs/AP01_FDS_NO_GATEWAY_SOLUTION.zh-CN.md).
@@ -418,11 +497,11 @@ refreshes are different: the loader writes GIF slots, metadata, and its ACK
 record only to these RAM-backed paths:
 
 ```text
-/tmp/.ap01q0.gif
-/tmp/.ap01q1.gif
-/tmp/.ap01q2.gif
+/tmp/.ap01p{0,1,2}{m,o}.gif
 /tmp/.ap01q.meta
 /tmp/.ap01q.ack
+/tmp/.ap01q.ui
+/tmp/.ap01blank.gif
 ```
 
 That means changing artwork or refreshing quotas does **not** repeatedly write
@@ -430,10 +509,14 @@ the AP01 firmware or resource partitions.
 
 ## Privacy
 
-- Claude and Codex data is fetched from official clients signed in as the local
-  macOS or Windows user.
-- Session credentials remain in memory.
-- Rendered JSON contains quota values only.
+- Codex, Claude Code and Kimi Code use official local signed-in state;
+  DeepSeek uses its official balance API.
+- the Claude cache keeps only rate-limit percentages, reset times and plan; it
+  excludes session IDs, transcript paths/content and tokens. The DeepSeek key
+  stays in macOS Keychain.
+- rendered quota files are mode 0600; raw JSON contains sanitized values only
+  and is localhost-only. Screen endpoints accept only localhost and the exact
+  RFC1918 AP01 allow-list without logging either address.
 - The repository excludes firmware images, Xiaomi account credentials, signed
   download URLs, device IDs, local IP addresses, and generated artifacts.
 
@@ -449,7 +532,7 @@ Then use prompts such as:
 
 ```text
 Use $cuktech-ap01-screen-kit to turn this image into an AP01 screen.
-Use $cuktech-ap01-screen-kit to design and deploy a Claude/Codex quota dashboard.
+Use $cuktech-ap01-screen-kit to safely deploy the verified two-page Codex, Claude Code, Kimi Code and DeepSeek dashboard.
 Use $cuktech-ap01-screen-kit to diagnose why AP01 is not refreshing.
 ```
 
@@ -461,8 +544,10 @@ firmware workflow, network checks, and bilingual task guidance.
 ```text
 ap01_prepare_screen.py     Convert arbitrary images into AP01-safe GIFs
 ap01_screen_bridge.py      Serve mutable artwork over LAN
-quota_dashboard.py         Render live Claude + Codex quota UI
+quota_dashboard.py         Legacy one-page renderer and compatibility collector
 ap01_wifi_bridge.py        Refresh and serve the quota dashboard
+coding_balances_bridge.py  Render and serve the four-provider AP2B bundle
+claude_statusline_cache.py Cache only official Claude Code rate-limit fields
 ap01_realtime_patch.py     Build the 1.0.2_0031 RAM-backed loader
 ap01_install_firmware.py   Deliver an already-built image through Xiaomi OTA
 realtime_payload/          AP01 loader source
@@ -475,9 +560,14 @@ scripts/*windows.ps1       Windows source setup and read-only diagnostics
 ## Development
 
 ```bash
-.venv/bin/python -m unittest -v test_quota_dashboard.py test_ap01_install_firmware.py test_platform_support.py test_windows_runtime.py
-.venv/bin/python ap01_prepare_screen.py docs/images/quota-dashboard-preview.png /tmp/ap01.gif
+.venv/bin/python -m unittest discover -v
+.venv/bin/python scripts/render-two-page-demo.py
 ```
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution conventions. The project
-is released under the [MIT License](LICENSE).
+See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution conventions and
+[SECURITY.md](SECURITY.md) before sharing logs or reporting a vulnerability.
+The project is released under the [MIT License](LICENSE); upstream authorship
+and this fork's modification scope are recorded in [NOTICE.md](NOTICE.md).
+
+This project is not affiliated with or endorsed by CUKTECH, Xiaomi, OpenAI,
+Anthropic, Moonshot AI or DeepSeek. Their trademarks belong to their owners.

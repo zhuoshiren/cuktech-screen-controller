@@ -1,129 +1,146 @@
 # First-time real-time firmware workflow
 
-The verified binary offsets in this kit apply only to CUKTECH AP01 firmware
-`1.0.2_0031`, model `njcuk.enstor.ap01`. Refuse to reuse these offsets on a
-different version; port the reverse-engineered hooks first.
+The verified offsets in this kit apply only to model `njcuk.enstor.ap01`,
+firmware `1.0.2_0031`. Refuse to reuse them on another build. Port and verify
+every hook first.
+
+For the four-provider layout, also read
+[two-page-coding-dashboard.md](two-page-coding-dashboard.md). It defines the
+physical window map, AP2B format and single-active-decoder requirements.
 
 ## Prerequisites
 
-- Log into the required services on the computer that will run the Bridge.
-  Automatic Claude/Codex account collection is currently macOS-specific.
-- Put the Bridge computer and AP01 on the same non-isolated LAN.
-- Reserve the computer's IPv4 address in DHCP before building the firmware URL.
-  Confirm the router-visible MAC, keep macOS Private Wi-Fi Address fixed, then
-  reconnect and prove the IP is unchanged. If reservation is impossible, tell
-  the user before installation that a later IP change requires restoring the
-  embedded address or rebuilding/reinstalling the loader once for a stabilized
-  new address.
-- Install Python dependencies plus `riscv64-elf-gcc` and
+- Keep AP01 on stable base power, paired and online in Mi Home.
+- Put the bridge computer and AP01 on the same non-isolated LAN.
+- Reserve the computer's IPv4 address in the router before embedding it.
+- Confirm model/version from current device data, not a filename or memory.
+- Install Python dependencies, `riscv64-elf-gcc` and
   `riscv64-elf-binutils`.
+- Start the bridge and validate `/health` and `/screen.ap2b` before install.
+- Keep a private copy of the matching stock image and last known-good image.
+
+Never commit firmware, credentials, DIDs, signed URLs, local IPs or artifacts.
 
 ## Build
 
-Download the matching stock firmware:
+Obtain the exact stock image through the owner's legitimate Mi Home account:
 
 ```bash
 .venv/bin/python mi_cloud.py firmware
 .venv/bin/python mi_cloud.py download
 ```
 
-Build a shortened compatibility image containing the fallback GIF:
+Build the compatibility image, then inject the RAM loader:
 
 ```bash
 .venv/bin/python ap01_custom_ota.py artifacts/screen.gif \
   --firmware artifacts/ap01-1.0.2_0031.bin \
   --output artifacts/ap01-1.0.2_0031-screen-compat.bin
-```
 
-Inject the RAM-backed HTTP loader using the Bridge computer's actual LAN IP:
-
-```bash
 .venv/bin/python ap01_realtime_patch.py \
   --input artifacts/ap01-1.0.2_0031-screen-compat.bin \
   --output artifacts/ap01-1.0.2_0031-screen-realtime.bin \
   --build-dir artifacts/realtime-build \
-  --url http://COMPUTER_LAN_IP:8765/screen.gif \
+  --url http://COMPUTER_LAN_IP:8765/screen.ap2b \
   --refresh-seconds 300
 ```
 
-Never pass an already patched real-time image back through
-`ap01_custom_ota.py`; replacing the pet slot would erase the injected payload.
+Never pass the real-time-patched output back through `ap01_custom_ota.py`; the
+asset replacement would erase the injected payload.
 
-## Validate and install
+Retain and review the patch manifest. Require recovery length/CRC, BFNP,
+payload readback, exact hook targets, expected changed ranges, no ELF
+relocations and no writable payload globals.
 
-### Gateway-free desktop flow
+## Upload without exposing the owner account
 
-CUKTECH Screen Controller 0.4 can obtain the exact per-LAN loader from the
-restricted shared FDS relay. The client first confirms the local Mi Home AP01
-is online and exactly `njcuk.enstor.ap01 / 1.0.2_0031`, sends only its private
-`http://IP:8765/screen.gif` URL and refresh interval, then verifies BFNP, size,
-SHA-256, MD5 and the pinned Xiaomi OTA CDN host. Perform `download-only` first
-and require explicit user confirmation immediately before `--install`.
+AP01 has no server-side FDS upload configuration. A real FDS-capable
+`lumi.gateway.*` or `xiaomi.gateway.*` identity may obtain the signed upload
+URL; the AP01 DID is used only for the later `miIO.ota` install command.
 
-The relay must never accept an arbitrary BIN or receive the AP01 owner's Xiaomi
-credentials/DID. It builds from the reviewed stock SHA-256 and uses the
-operator's gateway identity only for FDS upload. Daily updates do not use it.
-
-Quota GIFs deliberately omit the infinite-loop extension. They animate, hold
-the live values, then stop on a large disconnected frame after about seven
-minutes. A normal five-minute successful AP01 poll replaces and restarts the
-GIF first. This prevents a powered-off Bridge from leaving stale numbers that
-look live; it does not change the RAM-only transport or apply to custom art.
-
-### Manual or operator flow
-
-Start the bridge before installation. Validate transport first, then install
-the exact prebuilt image without rebuilding it:
+When such a gateway is available:
 
 ```bash
 .venv/bin/python ap01_install_firmware.py \
-  artifacts/ap01-1.0.2_0031-screen-realtime.bin --download-only
-.venv/bin/python ap01_install_firmware.py \
-  artifacts/ap01-1.0.2_0031-screen-realtime.bin --install
-```
-
-AP01 has no FDS configuration of its own. Its DID/model returns `code=-6`
-from `/home/genpresignedurl`. The default uploader therefore needs a real
-FDS-enabled `lumi.gateway.*` or `xiaomi.gateway.*` identity from the signed-in
-account. That gateway identity is used only for upload; `deliver()` still
-targets the AP01 DID.
-
-If the AP01 account has no such gateway, separate upload from delivery. On a
-trusted account containing an FDS-enabled gateway, upload the exact BIN:
-
-```bash
-.venv/bin/python ap01_install_firmware.py artifacts/screen-realtime.bin \
+  artifacts/ap01-1.0.2_0031-screen-realtime.bin \
   --upload-only --url-output /tmp/ap01-ota-url.txt
 ```
 
-Transfer the short-lived URL file to the AP01 owner and immediately validate
-without installing:
+The restricted shared relay is an alternative for owners without a gateway.
+It may accept only the private bridge URL, exact model/version and refresh
+interval. It must pin the reviewed stock hash, reject arbitrary firmware,
+omit signed URLs from logs, and never receive the owner's Xiaomi credentials,
+AP01 DID or coding-provider sessions.
+
+## Host-side verification is mandatory
+
+Do not use device `download-only`. Real-device testing found that AP01
+1.0.2_0031 may continue from `proc=dnld` into automatic installation and
+reboot. The public CLI refuses `--download-only` before reading URL files or
+accessing the network.
+
+Verify the exact uploaded object on the computer:
 
 ```bash
-.venv/bin/python ap01_install_firmware.py artifacts/screen-realtime.bin \
-  --download-only --ota-url-file /path/to/ap01-ota-url.txt --timeout 360
+.venv/bin/python ap01_install_firmware.py \
+  artifacts/ap01-1.0.2_0031-screen-realtime.bin \
+  --verify-download --ota-url-file /tmp/ap01-ota-url.txt --timeout 360
 ```
 
-Both commands must refer to byte-identical firmware. There is no AP01 bucket
-or hidden AP01 FDS model to enter manually. Explicit `--fds-did` and
-`--fds-model` options select a real gateway when automatic discovery is
-ambiguous; they cannot grant FDS capability to AP01.
+This action:
 
-Require OTA state progression through downloaded/installed, a rebooted uptime,
-and an AP01 request for `/screen.gif`. The normal charging UI is unchanged;
-select the virtual-pet page to view custom content.
+- accepts only the official `https://iot-ota-cdn.io.mi.com` host;
+- downloads the complete signed object on the host;
+- compares BFNP, byte count, SHA-256 and MD5 with the local image;
+- does not instantiate `MiCloud`;
+- does not contact AP01;
+- does not send `miIO.ota` or write Flash.
 
-## Runtime storage
+Do not rebuild between upload, verification and installation.
 
-The loader writes only these RAM-backed tmpfs files:
+## Explicitly confirmed install
+
+Stop if the owner has not explicitly approved installing and restarting this
+exact verified image. After approval:
+
+```bash
+.venv/bin/python ap01_install_firmware.py \
+  artifacts/ap01-1.0.2_0031-screen-realtime.bin \
+  --install --ota-url-file /tmp/ap01-ota-url.txt --timeout 420
+```
+
+Keep stable power. Require all of the following before declaring completion:
+
+1. AP01 accepts the OTA command.
+2. Install-stage or progress evidence appears.
+3. Uptime decreases after reboot and the device returns online.
+4. The bridge logs AP01 `GET /screen.ap2b 200`.
+5. The owner visually verifies both physical pages and all retained stock pages.
+
+A successful build, upload, CDN hash or RPC acceptance alone is not enough.
+
+## Runtime storage and Flash behavior
+
+The two-page loader writes recurring data only to tmpfs:
 
 ```text
-/tmp/.ap01q0.gif
-/tmp/.ap01q1.gif
-/tmp/.ap01q2.gif
+/tmp/.ap01p{0,1,2}{m,o}.gif
 /tmp/.ap01q.meta
 /tmp/.ap01q.ack
+/tmp/.ap01q.ui
+/tmp/.ap01blank.gif
 ```
 
-OTA writes Flash once. Later content and quota refreshes do not write the
-firmware/resource partitions.
+OTA writes Flash once. Normal five-minute screen refreshes do not write the
+firmware or resource partitions.
+
+## Recovery boundary
+
+If either page becomes white, the carousel attaches to Power/Settings, or the
+device stops rotating, do not keep flashing variants. Restore the last exact
+known-good image, verify its hash and CDN readback, install it once with owner
+approval, then prove the known-good page before attempting a focused patch.
+
+Prefer restoring the embedded bridge IP or router reservation over rebuilding
+firmware after a DHCP change. Reinstall only when the old address cannot be
+restored and the new address has been stabilized.

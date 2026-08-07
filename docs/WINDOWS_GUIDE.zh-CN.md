@@ -18,12 +18,12 @@ macOS 版使用同一套 AP01 Bridge 与画面格式，可以直接切换 Claude
 | 每 5 分钟自动刷新与 AP01 实时预览 | ✅ |
 | 登录 Windows 后自动运行 Bridge | ✅ |
 | 新手检查、日志、`/health` | ✅ |
-| BFNP 校验、FDS 票据、`download-only` | ✅ |
+| BFNP 校验、FDS 票据、电脑端 CDN 回读 | ✅ |
 | macOS SwiftUI 安装包和 LaunchAgent | 不适用；Windows 使用本页软件与启动项 |
 
 ## 方法一：安装 Windows 软件（推荐）
 
-1. 打开 [GitHub Releases](https://github.com/wqytommy666/cuktech-screen-controller/releases/latest)；
+1. 打开 [GitHub Releases](https://github.com/zhuoshiren/cuktech-screen-controller/releases/latest)；
 2. 下载 **`CUKTECH-Screen-Controller-0.4.1-Windows-x64.zip`**；
 3. 右键 ZIP，选择“全部解压”。不要在压缩包预览窗口里直接运行；
 4. 双击 **`Install CUKTECH Screen Controller.cmd`**；
@@ -133,8 +133,8 @@ Windows 版可完成：
 - 检查 `screen-realtime.bin` 的 BFNP 文件头和 SHA-256；
 - 导入别人生成的短时 FDS URL；
 - 使用具备 FDS 配置的网关账号生成票据；
-- 对 AP01 执行 `download-only` 下载与 MD5 验证；
-- 下载验证成功后，经过单独确认完成一次性安装；
+- 由电脑回读完整 CDN 对象，验证 BFNP、大小、SHA-256 与 MD5；
+- 回读验证成功后，经过单独确认完成一次性安装；
 - 自动在日志中隐藏签名 URL 的查询参数。
 
 Windows 没有 macOS 米家 App 的 plist。需要云端操作时，软件只在本次进程中读取
@@ -158,7 +158,7 @@ Windows 没有 macOS 米家 App 的 plist。需要云端操作时，软件只在
 已安装 Python 3.9+ 时，在 PowerShell 中执行：
 
 ```powershell
-git clone https://github.com/wqytommy666/cuktech-screen-controller.git
+git clone https://github.com/zhuoshiren/cuktech-screen-controller.git
 cd cuktech-screen-controller
 Set-ExecutionPolicy -Scope Process Bypass
 .\scripts\setup-windows.ps1 -App
