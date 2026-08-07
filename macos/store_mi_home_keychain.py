@@ -10,6 +10,8 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -32,23 +34,23 @@ def store(service: str, keychain_account: str) -> None:
         },
         separators=(",", ":"),
     )
+    helper = Path(__file__).with_name("store-mi-home-keychain")
+    source = Path(__file__).with_name("store-mi-home-keychain.swift")
+    if helper.is_file() and os.access(helper, os.X_OK):
+        command = [str(helper), service, keychain_account]
+    elif source.is_file() and shutil.which("swift"):
+        command = [shutil.which("swift") or "/usr/bin/swift", str(source), service, keychain_account]
+    else:
+        raise RuntimeError(
+            "缺少安全的米家钥匙串写入助手；拒绝把 PassToken 放进命令行"
+        )
     subprocess.run(
-        [
-            "/usr/bin/security",
-            "add-generic-password",
-            "-U",
-            "-a",
-            keychain_account,
-            "-s",
-            service,
-            "-T",
-            "/usr/bin/security",
-            "-w",
-            payload,
-        ],
+        command,
+        input=payload + "\n",
         check=True,
-        stdout=subprocess.DEVNULL,
-        timeout=15,
+        capture_output=True,
+        text=True,
+        timeout=30,
     )
 
 

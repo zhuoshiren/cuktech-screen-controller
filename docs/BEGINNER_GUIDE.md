@@ -30,20 +30,21 @@ loader is installed and normal updates only use RAM. A completely stock AP01
 needs the supported loader installed once. Open **First deployment / OTA** and
 choose **Gateway-free: get deployment package**. No Xiaomi gateway or manual
 firmware file is required. The app checks `njcuk.enstor.ap01 / 1.0.2_0031`,
-performs download-only verification, and asks again immediately before install.
+has the computer read the complete CDN object back without contacting AP01,
+and asks again immediately before install.
 
 ## Install the app
 
 1. Download the ZIP for your operating system from
-   [GitHub Releases](https://github.com/wqytommy666/cuktech-screen-controller/releases/latest).
+   [GitHub Releases](https://github.com/zhuoshiren/cuktech-screen-controller/releases/latest).
 2. On macOS, unzip it and open `Install CUKTECH Screen Controller.command`.
 3. On Windows, use **Extract All**, then open `Install CUKTECH Screen Controller.cmd`.
 4. Allow local/private-network access when the operating system asks.
 5. Follow the in-app **新手引导 / Getting started** readiness checks.
 
 For a stock AP01, open **First deployment / OTA**, choose the gateway-free
-package action only after the Bridge IP is reserved, run download-only
-verification, then use the separately confirmed install action. Users whose
+package action only after the Bridge IP is reserved, run host-side CDN
+readback verification, then use the separately confirmed install action. Users whose
 AP01 already shows custom content must skip this step and must not reinstall
 the loader merely to change artwork.
 
@@ -57,7 +58,7 @@ Give Claude Code, Codex, OpenCode, WorkBuddy, or another terminal-capable agent
 this URL:
 
 ```text
-https://github.com/wqytommy666/cuktech-screen-controller
+https://github.com/zhuoshiren/cuktech-screen-controller
 ```
 
 Use this prompt:

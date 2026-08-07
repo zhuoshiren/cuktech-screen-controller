@@ -129,18 +129,25 @@ class MiCloud:
                 "deviceId": self.device_id,
             }
         )
-        response = session.get(
-            "https://account.xiaomi.com/pass/serviceLogin",
-            params={"sid": "xiaomiio", "_json": "true"},
-            timeout=20,
-        )
-        response.raise_for_status()
+        try:
+            response = session.get(
+                "https://account.xiaomi.com/pass/serviceLogin",
+                params={"sid": "xiaomiio", "_json": "true"},
+                timeout=20,
+            )
+            response.raise_for_status()
+        except requests.RequestException:
+            raise RuntimeError("Xiaomi account session refresh failed") from None
         auth = json.loads(response.text.replace("&&&START&&&", ""))
         if auth.get("code") != 0 or not auth.get("location"):
             raise RuntimeError(f"Xiaomi account refresh failed: code={auth.get('code')}")
         self.ssecurity = auth["ssecurity"]
-        response = session.get(auth["location"], timeout=20)
-        response.raise_for_status()
+        try:
+            response = session.get(auth["location"], timeout=20)
+            response.raise_for_status()
+        except requests.RequestException:
+            # The login-exchange URL contains temporary account parameters.
+            raise RuntimeError("Xiaomi account login exchange failed") from None
         self.service_token = (
             response.cookies.get("serviceToken")
             or session.cookies.get("serviceToken")
@@ -232,10 +239,13 @@ class MiCloud:
             "timezone": "GMT+08:00",
             "channel": "MI_APP_STORE",
         }
-        response = requests.post(
-            url, data=encrypted, headers=headers, cookies=cookies, timeout=30
-        )
-        response.raise_for_status()
+        try:
+            response = requests.post(
+                url, data=encrypted, headers=headers, cookies=cookies, timeout=30
+            )
+            response.raise_for_status()
+        except requests.RequestException:
+            raise RuntimeError("Xiaomi Cloud API request failed") from None
         decoded = self._rc4(signed_nonce, response.text, decrypt=True)
         return json.loads(decoded)
 
@@ -306,12 +316,21 @@ class MiCloud:
         version = str(info["version"])
         target = output_dir / f"ap01-{version}.bin"
         output_dir.mkdir(parents=True, exist_ok=True)
-        response = requests.get(info["url"], timeout=120)
-        response.raise_for_status()
-        digest = hashlib.md5(response.content).hexdigest()
+        response: requests.Response | None = None
+        try:
+            response = requests.get(info["url"], timeout=120)
+            response.raise_for_status()
+            content = response.content
+        except requests.RequestException:
+            # Firmware download URLs may be signed; suppress requests' URL text.
+            raise RuntimeError("Xiaomi firmware download failed") from None
+        finally:
+            if response is not None:
+                response.close()
+        digest = hashlib.md5(content).hexdigest()
         if digest.lower() != str(info["md5"]).lower():
             raise RuntimeError(f"OTA MD5 mismatch: expected {info['md5']}, got {digest}")
-        target.write_bytes(response.content)
+        target.write_bytes(content)
         return target
 
 

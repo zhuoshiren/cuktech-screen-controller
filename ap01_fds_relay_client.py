@@ -4,7 +4,7 @@
 The relay receives only the Bridge LAN URL and refresh interval. Xiaomi account
 credentials stay on the AP01 owner's computer. The returned firmware is
 downloaded from Xiaomi's OTA CDN, checked byte-for-byte against the relay
-metadata, and stored locally for the existing download-only/install workflow.
+metadata, and stored locally for host-side readback plus confirmed install.
 """
 
 from __future__ import annotations
@@ -15,6 +15,7 @@ import ipaddress
 import json
 import os
 import stat
+import tempfile
 import time
 from pathlib import Path
 from typing import Any
@@ -41,8 +42,8 @@ def validate_bridge_url(value: str) -> str:
     parsed = urlsplit(value.strip())
     if parsed.scheme != "http" or parsed.username or parsed.password:
         raise ValueError("Bridge 地址必须是局域网 HTTP 地址")
-    if parsed.path != "/screen.gif" or parsed.query or parsed.fragment:
-        raise ValueError("Bridge 地址必须以 /screen.gif 结尾且不能包含查询参数")
+    if parsed.path not in {"/screen.gif", "/screen.ap2b"} or parsed.query or parsed.fragment:
+        raise ValueError("Bridge 地址必须以 /screen.gif 或 /screen.ap2b 结尾且不能包含查询参数")
     if parsed.port != 8765:
         raise ValueError("Bridge 必须使用 TCP 8765")
     try:
@@ -58,7 +59,7 @@ def validate_bridge_url(value: str) -> str:
         or address.is_unspecified
     ):
         raise ValueError("Bridge 必须使用可由 AP01 访问的私有 IPv4 地址")
-    normalized = f"http://{address}:8765/screen.gif"
+    normalized = f"http://{address}:8765{parsed.path}"
     if len(normalized.encode("ascii")) + 1 > 40:
         raise ValueError("Bridge 地址超过 AP01 固件 URL 槽位长度")
     return normalized
@@ -93,8 +94,8 @@ def resolve_relay_url(
             headers={"Accept": "application/json", "Cache-Control": "no-cache"},
             timeout=timeout,
         )
-    except requests.RequestException as error:
-        raise RuntimeError("无法获取共享部署服务地址，请检查网络后重试") from error
+    except requests.RequestException:
+        raise RuntimeError("无法获取共享部署服务地址，请检查网络后重试") from None
     if response.status_code != 200:
         raise RuntimeError(f"共享部署服务发现失败：HTTP {response.status_code}")
     try:
@@ -185,8 +186,8 @@ def request_ticket(
     }
     try:
         response = requests.post(endpoint, headers=headers, json=request_payload, timeout=timeout)
-    except requests.RequestException as error:
-        raise RuntimeError("无法连接共享部署服务，请检查网络后重试") from error
+    except requests.RequestException:
+        raise RuntimeError("无法连接共享部署服务，请检查网络后重试") from None
     payload = _safe_json(response)
     if response.status_code != 200:
         message = str(payload.get("error") or f"HTTP {response.status_code}")
@@ -259,9 +260,9 @@ def download_firmware(payload: dict[str, Any], output: Path, *, timeout: float =
                 sha256.update(chunk)
                 md5.update(chunk)
                 target.write(chunk)
-    except requests.RequestException as error:
+    except requests.RequestException:
         temporary.unlink(missing_ok=True)
-        raise RuntimeError("从小米 OTA CDN 下载固件失败") from error
+        raise RuntimeError("从小米 OTA CDN 下载固件失败") from None
     except Exception:
         temporary.unlink(missing_ok=True)
         raise
@@ -281,13 +282,18 @@ def download_firmware(payload: dict[str, Any], output: Path, *, timeout: float =
 
 def write_ticket(payload: dict[str, Any], output: Path) -> Path:
     output.parent.mkdir(parents=True, exist_ok=True)
-    temporary = output.with_name(output.name + ".tmp")
-    temporary.write_text(str(payload["ticket"]["url"]) + "\n", encoding="utf-8")
+    descriptor, raw = tempfile.mkstemp(prefix=f".{output.name}.", dir=output.parent)
+    temporary = Path(raw)
     try:
-        temporary.chmod(stat.S_IRUSR | stat.S_IWUSR)
-    except OSError:
-        pass
-    os.replace(temporary, output)
+        with os.fdopen(descriptor, "w", encoding="utf-8") as stream:
+            stream.write(str(payload["ticket"]["url"]) + "\n")
+        try:
+            temporary.chmod(stat.S_IRUSR | stat.S_IWUSR)
+        except OSError:
+            pass
+        os.replace(temporary, output)
+    finally:
+        temporary.unlink(missing_ok=True)
     return output
 
 

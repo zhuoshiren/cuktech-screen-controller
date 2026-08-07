@@ -15,8 +15,12 @@ from ap01_fds_relay_server import RateLimiter, TicketRequest, redact_urls
 class RelayValidationTests(unittest.TestCase):
     def test_private_bridge_url_is_normalized(self) -> None:
         self.assertEqual(
-            client.validate_bridge_url("http://192.168.31.45:8765/screen.gif"),
-            "http://192.168.31.45:8765/screen.gif",
+            client.validate_bridge_url("http://192.168.50.20:8765/screen.gif"),
+            "http://192.168.50.20:8765/screen.gif",
+        )
+        self.assertEqual(
+            client.validate_bridge_url("http://192.168.50.20:8765/screen.ap2b"),
+            "http://192.168.50.20:8765/screen.ap2b",
         )
 
     def test_public_or_wrong_path_bridge_is_rejected(self) -> None:
@@ -35,7 +39,7 @@ class RelayValidationTests(unittest.TestCase):
             "api_version": 1,
             "model": "njcuk.enstor.ap01",
             "firmware": "1.0.2_0031",
-            "bridge_url": "http://192.168.31.45:8765/screen.gif",
+            "bridge_url": "http://192.168.50.20:8765/screen.ap2b",
             "refresh_seconds": 300,
             "firmware_upload": "not-allowed",
         }
@@ -43,7 +47,7 @@ class RelayValidationTests(unittest.TestCase):
             TicketRequest.parse(payload)
 
     def test_ticket_payload_pins_model_hashes_and_cdn(self) -> None:
-        bridge = "http://192.168.31.45:8765/screen.gif"
+        bridge = "http://192.168.50.20:8765/screen.ap2b"
         payload = {
             "api_version": 1,
             "firmware": {

@@ -1,5 +1,9 @@
 # CUKTECH Screen Controller 0.2.0
 
+> Safety correction: the historical `download-only` behavior below is no
+> longer exposed. AP01 1.0.2_0031 may continue into installation; current
+> releases use host-side full CDN readback through `--verify-download`.
+
 ## 中文
 
 - 新增原生 macOS SwiftUI 控制器与自定义 Logo。

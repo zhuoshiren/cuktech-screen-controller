@@ -4,9 +4,9 @@
 
   # CUKTECH Screen Controller
 
-  **酷态科 AP01 万向屏的 macOS 与 Windows 图形控制器。**
+  **酷态科 10 号电能柱 AP01 万向屏 / 万象屏自定义显示与双页面额度方案。**
 
-  自定义图片与 GIF · Claude/Codex 实时额度 · 局域网刷新 · RAM 更新
+  Codex + Claude Code · Kimi Code + DeepSeek · 局域网刷新 · RAM 更新
 
   [![Python](https://img.shields.io/badge/Python-3.9%2B-3776AB?logo=python&logoColor=white)](#高级与手动配置)
   [![Toolkit](https://img.shields.io/badge/Toolkit-macOS%20%7C%20Windows-159FCB)](#平台支持)
@@ -21,6 +21,49 @@
 </div>
 
 ---
+
+> [!NOTE]
+> 这是
+> [`wqytommy666/cuktech-screen-controller`](https://github.com/wqytommy666/cuktech-screen-controller)
+> 的社区修改版 Fork，并非从零重写。仓库保留上游 Git 历史与 MIT 版权声明；
+> 具体署名和本 Fork 的改动范围见 [NOTICE.md](NOTICE.md)。
+
+## 已在真机验证：两页 Coding 额度面板
+
+这不是概念图。下面这套方案已在 `njcuk.enstor.ap01 / 1.0.2_0031` 真机上连续
+构建、刷入、修复并最终由设备所有者确认两页均正常显示。README 图片使用合成
+演示数据，不包含真实余额、Token、设备地址或米家信息。
+
+![酷态科 AP01 双页面 Codex Claude Kimi DeepSeek 额度面板](docs/images/two-page-coding-dashboard.png)
+
+| 旋钮页面 | 显示内容 | 数据来源 |
+| --- | --- | --- |
+| 原虚拟形象页 `window 7` | Codex Pro + Claude Code Max | 官方 Codex `app-server`；Claude Code 官方 `statusLine` |
+| 原天气页 `window 5` | Kimi Code Allegro + DeepSeek | Kimi Code 本机 OAuth；DeepSeek 官方余额 API |
+
+实际循环顺序是：`设置 6 → Codex/Claude 7 → Kimi/DeepSeek 5 → 日历 4 → 时间 3 → 电源 0 → 设置 6`。
+这个映射很关键：`window 0` 是电源，不是天气；把内容挂到错误窗口会出现“挤进设置页”
+或覆盖电源页的现象。
+
+如果你正在搜索“酷态科 AP01 万向屏刷机”“酷态科 10 号万象屏自定义界面”或
+“Codex / Claude Code / Kimi Code 余额小屏”，本仓库记录的就是这套完整实现。
+
+实现采用 **AP2B 双页包 + 单活动 GIF 解码器**。第一页复用原虚拟形象对象，第二页只
+在原天气页新增一个对象；未选中的页面指向 1×1 的 `/tmp` 占位 GIF。这个设计解决了
+多个 320×240 GIF 解码器同时驻留导致的白屏，同时保留原设置、日历、时间和电源页面。
+
+完整复现、故障判断和恢复步骤见
+[双页面真机案例](skills/cuktech-ap01-screen-kit/references/two-page-coding-dashboard.md)。
+
+> [!CAUTION]
+> 二进制偏移只适用于上述型号和固件。仓库不分发小米/酷态科原厂固件，也不会把
+> 用户的固件、签名 OTA URL、密钥、Cookie、DID 或局域网地址提交到 GitHub。
+
+> [!IMPORTANT]
+> 已验证的双页方案不读取 Claude Desktop 或浏览器 Cookie，只接收 Claude Code
+> 官方 `statusLine.rate_limits` 输入。仓库为了兼容旧版本仍保留一页版 Cookie
+> 采集器，但 Skill 不会推荐或启用它。签名 OTA URL 只能通过私有票据文件传递，
+> 不接受命令行明文，也不会输出到日志。
 
 ## 选择一种使用方式
 
@@ -38,7 +81,7 @@ CUKTECH Screen Controller 提供两种使用方式。
 | 适合人群 | 使用原生界面的日常用户 | 首次配置、故障诊断和深度自定义 |
 | 操作方式 | CUKTECH Screen Controller 图形软件 | Claude Code、Codex、OpenCode、WorkBuddy 等 |
 | 自定义图片 | 选择 PNG、JPG 或 GIF 后直接推送 | 使用仓库脚本转换、验证并部署 |
-| 额度面板 | 两个平台均可显示 Claude 与 Codex 实时额度 | 可修改 UI，并使用同一套账号采集器 |
+| 额度面板 | 两个平台均可显示 Claude 与 Codex | macOS 可部署本页介绍的四服务双页面方案 |
 | 首次加载器 | 无网关一键准备、BFNP 预检与确认安装 | 完整兼容性检查、构建和安装流程 |
 | 日常刷新 | 通过 Wi-Fi 更新 AP01 内存 | 通过 Wi-Fi 更新 AP01 内存 |
 
@@ -59,7 +102,7 @@ CUKTECH Screen Controller 提供两种使用方式。
 
 ## 方法一：安装图形软件
 
-从 [GitHub Releases](https://github.com/wqytommy666/cuktech-screen-controller/releases/latest)
+从 [GitHub Releases](https://github.com/zhuoshiren/cuktech-screen-controller/releases/latest)
 下载最新版 **CUKTECH Screen Controller**：
 
 - **Windows 10/11 x64：**解压
@@ -85,7 +128,8 @@ macOS 安装器会在第一次运行时创建隔离 Python 环境。
 
 > [!IMPORTANT]
 > **首次安装加载器前，必须先固定运行 Bridge 的电脑 IP。** AP01 固件保存的是
-> `http://电脑IP:8765/screen.gif` 这个固定地址，不会跟随 DHCP 自动变化。优先在
+> `http://电脑IP:8765/screen.ap2b`（双页；旧单页为 `/screen.gif`）这个固定地址
+> 不会跟随 DHCP 自动变化。优先在
 > 路由器中设置 DHCP 静态分配；如果地址后来变化，先恢复原地址（不写 Flash）。只有
 > 原地址无法恢复时，才固定新地址并重新生成、安装加载器（再写一次 Flash）。详细步骤：
 > [Bridge 固定 IP 与地址变更恢复指南](docs/STABLE_IP_GUIDE.zh-CN.md)。
@@ -103,8 +147,8 @@ macOS 安装器会在第一次运行时创建隔离 Python 环境。
   本地局域网和 TCP `8765` 端口；
 - 首次加载器安装前，需要准备 AP01 所属的米家账号并确认型号
   `njcuk.enstor.ap01`、固件 `1.0.2_0031`。不要拔电、重置或让设备离线；
-- 实时画面依赖电脑保持开机、用户已登录且 Bridge 正在运行。电脑睡眠或关机时，
-  额度面板约 7 分钟后显示“未连接，请连接”；用户主动选择的静态/自定义画面保持不变；
+- 实时画面依赖电脑保持开机、用户已登录且 Bridge 正在运行。当前双页常亮模式会在
+  电脑睡眠或关机时保留最后一张画面；需要通过画面上的“更新”时间判断新鲜度；
 - **首次安装加载器前必须**在路由器中为电脑设置 DHCP 地址保留。macOS 使用私有
   Wi-Fi 地址时应保持“固定”而不是“轮换”，并以路由器显示的当前 MAC 为准；
 - 如果路由器无法设置地址保留，必须先明确告知用户：地址变化后应优先恢复旧 IP；
@@ -114,7 +158,7 @@ macOS 安装器会在第一次运行时创建隔离 Python 环境。
 
 软件支持查看 Bridge 状态、切换额度面板与自定义画面、保留动态 GIF、选择
 “完整显示 / 铺满裁切 / 拉伸”，并通过图形界面自动获取无网关部署包、完成
-BFNP 固件预检、仅下载验证与确认安装。
+  BFNP 固件预检、电脑端 CDN 回读验证与确认安装。
 
 <div align="center">
   <img src="docs/images/cuktech-screen-controller-beginner-guide.jpg" alt="CUKTECH Screen Controller 新手引导" width="700" />
@@ -124,7 +168,8 @@ BFNP 固件预检、仅下载验证与确认安装。
   <img src="docs/images/cuktech-screen-controller-ota.jpg" alt="首次部署与 OTA 票据交接" width="700" />
 </div>
 
-> 软件不会静默安装固件。它会先进行米家只读检查、获取部署包和仅下载验证，
+> 软件不会静默安装固件。它会先进行米家只读检查、获取部署包，并由电脑从 OTA CDN
+> 回读完整文件、核对 BFNP/大小/SHA-256/MD5，
 > 最后单独弹出 Flash 写入确认。完全原厂状态的 AP01 只需完成这一次安装。
 
 ## 方法二：把 GitHub 仓库交给 Coding Agent
@@ -133,13 +178,13 @@ BFNP 固件预检、仅下载验证与确认安装。
 读取 GitHub 并运行终端命令的编程 Agent：
 
 ```text
-https://github.com/wqytommy666/cuktech-screen-controller
+https://github.com/zhuoshiren/cuktech-screen-controller
 ```
 
 推荐直接发送下面这段 Prompt：
 
 ```text
-请以 https://github.com/wqytommy666/cuktech-screen-controller 为唯一项目依据。
+请以 https://github.com/zhuoshiren/cuktech-screen-controller 为唯一项目依据。
 开始执行前先阅读 AGENTS.md、README.zh-CN.md 和
 skills/cuktech-ap01-screen-kit/SKILL.md。
 
@@ -154,8 +199,9 @@ powershell -ExecutionPolicy Bypass -File scripts/diagnose-windows.ps1。进行�
 向我解释：AP01 固件保存固定 IP，今后 IP 变化时需要恢复旧地址；旧地址无法恢复时
 需要固定新地址并重新构建、确认安装一次固件。
 
-然后安装并启动 Bridge，配置 Claude/Codex 自动额度面板或我的自定义图片。验证 /health 和
-AP01 GET /screen.gif 200，并按当前操作系统
+然后优先复现已经真机验证的双页面方案：第一页 Codex + Claude Code，第二页 Kimi Code +
+DeepSeek。只读取官方本机登录态，DeepSeek 密钥写入 macOS 钥匙串。验证 /health 和
+AP01 GET /screen.ap2b 200，并按当前操作系统
 设置登录后自动启动。如果加载器不存在，先构建和校验完全匹配的镜像，真正安装前
 向我确认。日常刷新必须使用 /tmp 的 RAM 槽位，不要重复刷固件。
 ```
@@ -178,24 +224,25 @@ AP01 GET /screen.gif 200，并按当前操作系统
 flowchart LR
   A["原厂 AP01"] -->|"仅首次：安装实时加载器"| B["写入一次 Flash"]
   B --> C["已经具备实时显示能力"]
-  C -->|"日常：获取 screen.gif"| D["写入 /tmp RAM 槽位"]
+  C -->|"日常：获取 screen.ap2b"| D["写入 /tmp RAM 槽位"]
   D --> E["更新画面，不重复刷固件"]
 ```
 
 - **首次加载器安装**：仅适配型号 `njcuk.enstor.ap01`、固件 `1.0.2_0031`，
   会发生一次固件 Flash 写入。
-- **日常图片与额度刷新**：GIF 只轮换写入 `/tmp/.ap01q*.gif`，不写固件分区
+- **日常图片与额度刷新**：双页 GIF 只轮换写入 `/tmp/.ap01p{0,1,2}{m,o}.gif`，不写固件分区
   或资源分区，不会因为五分钟刷新一次而把 Flash 刷坏。
-- 运行 Bridge 的电脑暂时离线时，AP01 最多保留当前面板约 7 分钟，随后显示
-  “未连接，请连接”；Bridge 恢复后继续刷新。
+- 运行 Bridge 的电脑暂时离线时，当前双页常亮模式会保留最后成功画面；Bridge
+  恢复后继续刷新。请用页面顶部更新时间判断数据是否仍然新鲜。
 
 ### 如何判断屏幕上的额度是不是最新的
 
-- 软件每 5 分钟重新读取 Claude/Codex 官方本机登录态；
+- Bridge 每 5 分钟重新读取四个服务的官方本机登录态或官方 API；
 - 在线卡片的计划徽章带绿色状态点和最后成功刷新时间，可与屏幕顶部时钟直接比较；
-- 采集失败时，Bridge 不再保留旧数字，而是发送大字“未连接 / 请连接”状态页；
-- 即使电脑直接关机、AP01 完全访问不到 Bridge，已下发的实时 GIF 也会在约 7 分钟后
-  自动停在“未连接，请连接”，不会把上一张额度图永久伪装成实时数据；
+- 某个服务暂时采集失败时，常亮模式保留该服务最后一次成功数据，并把错误写入本机
+  `/health` 与清洗后的 JSON；
+- 电脑关机时 AP01 无法获得新画面，因此屏幕上的更新时间不会前进。常亮是本方案的
+  明确需求，不应把旧更新时间误认成刚刷新；
 - 连接恢复并成功刷新后，下一次 AP01 轮询会自动恢复最新额度面板。
 
 ## 这是什么？
@@ -204,7 +251,7 @@ flowchart LR
 
 - 将任意图片转换为 AP01 可流畅显示的 GIF89a；
 - 设计高可读性的 320×240 信息屏；
-- 从已登录的 Claude Desktop 与 Codex 获取额度；
+- 从 Codex、Claude Code、Kimi Code 与 DeepSeek 的官方来源获取额度；
 - 通过 macOS 或 Windows 电脑的局域网 Wi‑Fi 自动刷新显示内容；
 - 为 AP01 `1.0.2_0031` 安装一次性实时加载器；
 - 此后不再刷固件，只替换本地 GIF 即可换内容。
@@ -213,10 +260,10 @@ flowchart LR
 
 ## 核心能力
 
-| 自定义内容 | Claude / Codex 面板 | 轻量运行时 |
+| 自定义内容 | 双页 Coding 面板 | 轻量运行时 |
 | --- | --- | --- |
-| 将图片转换为经过校验的 320×240 GIF89a。 | Claude 5 小时 / 本周 / Fable 5；Codex 5 小时 / 本周。 | 帧数受控的动画，通常低于 90 KB。 |
-| 支持 `contain`、`cover`、`stretch`。 | 深色 OLED 风格、官方图标、重置时间与中文标签。 | AP01 在 `/tmp` RAM 中轮换文件，不写资源分区。 |
+| 将图片转换为经过校验的 320×240 GIF89a。 | Codex/Claude Code 严格额度；Kimi 周/5 小时；DeepSeek 余额。 | 帧数受控的动画，通常低于 90 KB。 |
+| 支持 `contain`、`cover`、`stretch`。 | Codex/Claude 与 Kimi/DeepSeek 各占一个旋钮页面。 | AP01 在 `/tmp` RAM 中轮换文件，不写资源分区。 |
 
 ## 工作架构
 
@@ -224,7 +271,7 @@ flowchart LR
 flowchart LR
   A["自定义画面或数据"] --> B["macOS / Windows 渲染器与 Bridge"]
   B -->|"GIF89a · 320×240 · HTTP"| C["AP01 实时加载器"]
-  C --> D["/tmp/.ap01q0.gif\n/tmp/.ap01q1.gif\n/tmp/.ap01q2.gif"]
+  C --> D["/tmp/.ap01p{0,1,2}{m,o}.gif\n三代双页 RAM 槽位"]
   D --> E["LVGL 虚拟形象页面"]
 ```
 
@@ -235,7 +282,7 @@ flowchart LR
 ### 1. 建立环境
 
 ```bash
-git clone https://github.com/wqytommy666/cuktech-screen-controller.git
+git clone https://github.com/zhuoshiren/cuktech-screen-controller.git
 cd cuktech-screen-controller
 python3 -m venv .venv
 .venv/bin/python -m pip install -r requirements.txt
@@ -260,26 +307,44 @@ py -3 -m venv .venv
 帧数与体积的同时保留可见动画。之后只需要原子替换 `artifacts/screen.gif`，
 AP01 会在下一次刷新时获取新内容。
 
-### 3. 运行 Claude + Codex 额度面板
+### 3. 运行四服务双页面额度面板（macOS）
 
-在运行 Bridge 的电脑上登录 Claude Desktop 与 Codex，然后执行：
+先登录 Codex、Claude Code 与 Kimi Code。DeepSeek API Key 不写入文件，使用安全输入框
+直接保存到 macOS 登录钥匙串：
 
 ```bash
-.venv/bin/python quota_dashboard.py
-.venv/bin/python -u ap01_wifi_bridge.py --bind 0.0.0.0 --port 8765 --interval 300
+swift macos/store-deepseek-key.swift
 ```
 
-在 `artifacts/quota-dashboard@2x.png` 查看设计预览。Bridge 提供：
+Claude Code 额度来自官方 `statusLine` 输入。把下面这一行作为**副作用**加入现有
+status-line 脚本（先完整读取 stdin，再继续使用同一份 `$input` 绘制原状态栏）：
+
+```bash
+printf '%s' "$input" | /ABSOLUTE/REPO/.venv/bin/python \
+  /ABSOLUTE/REPO/claude_statusline_cache.py 2>/dev/null || true
+```
+
+然后把已确认的 AP01 私有 IPv4 写入本地 allow-list，启动双页 Bridge：
+
+```bash
+printf '%s\n' 'AP01_PRIVATE_IP' > artifacts/ap01-ip
+printf '%s\n' 'coding' > artifacts/ap01-mode
+./macos/ap01-bridge-runner.sh
+```
+
+在 `artifacts/coding-balances-codex-claude@2x.png` 与
+`artifacts/coding-balances-kimi-deepseek@2x.png` 查看预览。Bridge 提供：
 
 ```text
 http://COMPUTER_LAN_IP:8765/screen.gif
-http://COMPUTER_LAN_IP:8765/api/v1/quota
+http://COMPUTER_LAN_IP:8765/screen.ap2b
+http://127.0.0.1:8765/api/v1/balances
 http://COMPUTER_LAN_IP:8765/health
 ```
 
-自动账号读取支持两个平台：macOS 通过 Keychain 读取 Claude Safe Storage；
-Windows 使用 DPAPI 在内存中解密当前用户的 Claude Electron 登录态；Codex 在
-两个平台都通过本地 `app-server` 获取额度。
+`/api/v1/balances` 仅允许本机访问；LAN 端只允许 allow-list 中的 AP01 和本机地址。
+完整的 Claude `statusLine` 接入、Keychain 和 provider 验证步骤见
+[双页面真机案例](skills/cuktech-ap01-screen-kit/references/two-page-coding-dashboard.md)。
 
 ## 首次配置实时固件
 
@@ -304,18 +369,25 @@ Windows 使用 DPAPI 在内存中解密当前用户的 Claude Electron 登录态
   --input artifacts/ap01-1.0.2_0031-screen-compat.bin \
   --output artifacts/ap01-1.0.2_0031-screen-realtime.bin \
   --build-dir artifacts/realtime-build \
-  --url http://COMPUTER_LAN_IP:8765/screen.gif \
+  --url http://COMPUTER_LAN_IP:8765/screen.ap2b \
   --refresh-seconds 300
 
-# 先验证下载链路，再安装已经构建好的镜像。
+# 上传后先由电脑回读 CDN，逐字节验证；这一步不会连接 AP01。
 .venv/bin/python ap01_install_firmware.py \
-  artifacts/ap01-1.0.2_0031-screen-realtime.bin --download-only
+  artifacts/ap01-1.0.2_0031-screen-realtime.bin \
+  --upload-only --url-output /tmp/ap01-ota-url.txt
 .venv/bin/python ap01_install_firmware.py \
-  artifacts/ap01-1.0.2_0031-screen-realtime.bin --install
+  artifacts/ap01-1.0.2_0031-screen-realtime.bin \
+  --verify-download --ota-url-file /tmp/ap01-ota-url.txt
+
+# 只有设备所有者明确确认后才安装同一份镜像。
+.venv/bin/python ap01_install_firmware.py \
+  artifacts/ap01-1.0.2_0031-screen-realtime.bin \
+  --install --ota-url-file /tmp/ap01-ota-url.txt
 ```
 
 最终安装前先启动 Bridge。日志中出现
-`AP01_IP "GET /screen.gif" 200`，即表示端到端实时刷新已打通。
+`AP01_IP "GET /screen.ap2b" 200`，即表示双页面端到端实时刷新已打通。
 
 ### 小米 FDS 上传前提
 
@@ -331,7 +403,7 @@ CUKTECH Screen Controller 0.4 起提供受限的共享 FDS 票据服务。软件
 1. 点击“无网关：一键获取部署包”；
 2. 软件确认 AP01 为 `njcuk.enstor.ap01 / 1.0.2_0031` 且米家在线；
 3. 下载并核对 BFNP、大小、SHA-256 与 MD5；
-4. 点击“仅下载验证（不会安装）”；
+4. 点击“电脑端 CDN 回读验证”；这一步不连接 AP01；
 5. 验证成功后点击“确认后安装”，并在最终弹窗中明确确认。
 
 共享服务仅解决一次性的 FDS 上传，最终 `miIO.ota` 仍由用户本机登录的米家账号
@@ -351,7 +423,7 @@ AP01 自身没有小米云端的 FDS 上传配置。把 AP01 的 DID/model 传�
 
 因此不存在可以手工填写的 AP01 bucket、隐藏 model 或特殊 DID。如果 AP01
 账号没有具备 FDS 配置的网关，可由可信的网关账号上传**完全相同的 BIN**，
-再把短时有效的签名 URL 交给 AP01 账号执行下载验证。
+再把短时有效的签名 URL 交给设备所有者的电脑执行回读验证。
 
 在含网关的上传账号/Mac 上执行：
 
@@ -370,11 +442,13 @@ AP01 自身没有小米云端的 FDS 上传配置。把 AP01 的 DID/model 传�
 ```bash
 .venv/bin/python ap01_install_firmware.py \
   artifacts/screen-realtime.bin \
-  --download-only --ota-url-file /path/to/ap01-ota-url.txt --timeout 360
+  --verify-download --ota-url-file /path/to/ap01-ota-url.txt --timeout 360
 ```
 
-这条命令只验证 AP01 能否下载及校验 MD5，不会安装或切换启动分区。上传端和
-下载端必须使用逐字节相同的 `screen-realtime.bin`，中间不要重新构建。
+这条命令由电脑从官方 OTA CDN 下载完整对象，核对 BFNP、大小、SHA-256 和 MD5，
+不会创建米家会话，也不会向 AP01 下发 OTA。上传端和验证端必须使用逐字节相同的
+`screen-realtime.bin`，中间不要重新构建。AP01 1.0.2_0031 上的旧
+`--download-only` 可能继续自动安装，因此已在公开工具中禁用。
 
 给自动化 Agent 使用的完整故障分流与验收清单见：
 [AP01 无外置网关时的 FDS 解决方案](docs/AP01_FDS_NO_GATEWAY_SOLUTION.zh-CN.md)。
@@ -396,20 +470,23 @@ AP01 自身没有小米云端的 FDS 上传配置。把 AP01 的 DID/model 传�
 固件安装会写入一次 Flash；普通内容与额度刷新不是这样。实时加载器只会写入以下 RAM 路径：
 
 ```text
-/tmp/.ap01q0.gif
-/tmp/.ap01q1.gif
-/tmp/.ap01q2.gif
+/tmp/.ap01p{0,1,2}{m,o}.gif
 /tmp/.ap01q.meta
 /tmp/.ap01q.ack
+/tmp/.ap01q.ui
+/tmp/.ap01blank.gif
 ```
 
 因此，修改画面或刷新额度时，**不会反复写入** AP01 固件与资源分区。
 
 ## 隐私
 
-- Claude 与 Codex 数据来自本机 macOS 或 Windows 用户已经登录的官方客户端账户。
-- Session 凭据仅保留在内存中。
-- 输出 JSON 只包含额度数据。
+- Codex、Claude Code 与 Kimi Code 使用本机已经登录的官方客户端状态；DeepSeek
+  使用官方余额 API。
+- Claude 缓存只保留 `rate_limits` 中的百分比、重置时间和套餐，不保留会话 ID、
+  对话路径、正文或 Token；DeepSeek Key 只保存在 macOS 钥匙串。
+- 额度文件权限统一为 0600；JSON 只包含经过清洗的数据且仅允许本机访问。画面端点
+  只接受本机与精确匹配的 RFC1918 AP01 白名单，持久日志不记录二者地址。
 - 仓库不会上传固件、米家账号凭据、签名下载链接、设备 ID、局域网 IP 或运行产物。
 
 ## Coding Agent 与 Skill
@@ -424,7 +501,7 @@ cp -R skills/cuktech-ap01-screen-kit ~/.codex/skills/
 
 ```text
 Use $cuktech-ap01-screen-kit to turn this image into an AP01 screen.
-Use $cuktech-ap01-screen-kit to design and deploy a Claude/Codex quota dashboard.
+Use $cuktech-ap01-screen-kit to safely deploy the verified two-page Codex, Claude Code, Kimi Code and DeepSeek dashboard.
 Use $cuktech-ap01-screen-kit to diagnose why AP01 is not refreshing.
 ```
 
@@ -435,8 +512,10 @@ Skill 内含可复用项目模板、图片转换器、额度面板、固件工�
 ```text
 ap01_prepare_screen.py     任意图片转 AP01 安全 GIF
 ap01_screen_bridge.py      在局域网提供可替换画面
-quota_dashboard.py         渲染 Claude + Codex 额度 UI
+quota_dashboard.py         旧版一页面板与兼容采集器
 ap01_wifi_bridge.py        自动刷新并提供额度面板
+coding_balances_bridge.py  渲染并提供四服务 AP2B 双页面
+claude_statusline_cache.py 安全缓存 Claude Code 官方额度字段
 ap01_realtime_patch.py     构建 1.0.2_0031 RAM 加载器
 ap01_install_firmware.py   通过小米 OTA 下发已构建镜像
 realtime_payload/          AP01 加载器源码
@@ -449,8 +528,12 @@ scripts/*windows.ps1       Windows 源码环境配置与只读诊断
 ## 开发
 
 ```bash
-.venv/bin/python -m unittest -v test_quota_dashboard.py test_ap01_install_firmware.py test_platform_support.py test_windows_runtime.py
-.venv/bin/python ap01_prepare_screen.py docs/images/quota-dashboard-preview.png /tmp/ap01.gif
+.venv/bin/python -m unittest discover -v
+.venv/bin/python scripts/render-two-page-demo.py
 ```
 
-贡献规范见 [CONTRIBUTING.md](CONTRIBUTING.md)。项目采用 [MIT License](LICENSE)。
+贡献规范见 [CONTRIBUTING.md](CONTRIBUTING.md)；分享日志或报告漏洞前请先阅读
+[SECURITY.md](SECURITY.md)。项目采用 [MIT License](LICENSE)；上游作者和本 Fork
+的修改范围记录在 [NOTICE.md](NOTICE.md)。
+本项目与酷态科、小米、OpenAI、Anthropic、Moonshot AI、DeepSeek 均无隶属或背书关系；
+各商标归其权利人所有。

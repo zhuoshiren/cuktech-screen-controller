@@ -9,7 +9,7 @@ diagnostics, and first-time OTA ticket handoff.
 
 ## Install the app (recommended)
 
-1. Open [GitHub Releases](https://github.com/wqytommy666/cuktech-screen-controller/releases/latest).
+1. Open [GitHub Releases](https://github.com/zhuoshiren/cuktech-screen-controller/releases/latest).
 2. Download `CUKTECH-Screen-Controller-0.4.1-Windows-x64.zip`.
 3. Use **Extract All**. Do not launch it from Explorer's ZIP preview.
 4. Double-click `Install CUKTECH Screen Controller.cmd`.
@@ -41,7 +41,7 @@ Re-running a newer installer updates the app without deleting this data.
 | Codex 5-hour/week | Yes, through the official local `app-server` |
 | Five-minute refresh, preview and `/health` | Yes |
 | Login background Bridge | Yes |
-| BFNP preflight, FDS ticket and `download-only` | Yes |
+| BFNP preflight, FDS ticket and host-side CDN readback | Yes |
 
 The Claude collector reads the current user's Electron/Chromium profile and
 uses Windows DPAPI in memory. Codex is queried through its official local
@@ -88,8 +88,8 @@ DHCP address.
 Do **not** repeat OTA when AP01 can already show custom content. A stock unit
 needs one loader matching model `njcuk.enstor.ap01` and firmware `1.0.2_0031`.
 The Windows dialog can validate BFNP/SHA-256, import or create a temporary FDS
-ticket, obtain a restricted gateway-free deployment package, run download-only
-verification, and require a separate confirmation before the one-time install.
+ticket, obtain a restricted gateway-free deployment package, read the entire
+CDN object back on the host, and require a separate confirmation before install.
 
 Windows has no Mi Home plist. Cloud operations therefore accept a local JSON
 selected for the current process only; see `mi-credentials.example.json` in
@@ -103,7 +103,7 @@ that JSON, the AP01 DID or arbitrary firmware to the relay. See the
 With Python 3.9+ installed:
 
 ```powershell
-git clone https://github.com/wqytommy666/cuktech-screen-controller.git
+git clone https://github.com/zhuoshiren/cuktech-screen-controller.git
 cd cuktech-screen-controller
 Set-ExecutionPolicy -Scope Process Bypass
 .\scripts\setup-windows.ps1 -App

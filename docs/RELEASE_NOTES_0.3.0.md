@@ -1,5 +1,9 @@
 # CUKTECH Screen Controller 0.3.0
 
+> Safety correction: the historical `download-only` UI below has been
+> replaced by host-side CDN readback because AP01 1.0.2_0031 may continue into
+> installation after a download-only request.
+
 ## 中文
 
 ### Windows 图形软件

@@ -2,7 +2,7 @@
 
 这项服务让**没有米家网关**的 AP01 用户完成一次性实时加载器安装。它不是日常
 画面服务器：加载器安装后，AP01 直接从用户电脑的局域网 Bridge 获取
-`/screen.gif`，后续不再访问共享 FDS 服务。
+`/screen.gif`（旧单页）或 `/screen.ap2b`（双页），后续不再访问共享 FDS 服务。
 
 ## 用户最终需要什么
 
@@ -13,7 +13,7 @@
 - CUKTECH Screen Controller。
 
 用户不需要购买网关、准备 BIN、使用 USB 数据线或执行命令。软件会先完成只读
-检查和仅下载验证，真正写入 Flash 前再次要求明确确认。
+检查和电脑端 CDN 完整回读验证（不连接 AP01），真正写入 Flash 前再次要求明确确认。
 
 ## 信任边界
 
@@ -33,12 +33,13 @@ Claude/Codex 登录态或任意固件上传。它只接受以下白名单字段�
   "api_version": 1,
   "model": "njcuk.enstor.ap01",
   "firmware": "1.0.2_0031",
-  "bridge_url": "http://192.168.1.20:8765/screen.gif",
+  "bridge_url": "http://192.168.1.20:8765/screen.ap2b",
   "refresh_seconds": 300
 }
 ```
 
-`bridge_url` 必须是私有 IPv4、TCP `8765`、固定路径 `/screen.gif`，且满足 AP01
+`bridge_url` 必须是私有 IPv4、TCP `8765`、固定路径 `/screen.gif` 或
+`/screen.ap2b`，且满足 AP01
 固件 40 字节 URL 槽位。刷新间隔限制为 60–1800 秒。
 
 ## 服务端安全约束
@@ -114,7 +115,7 @@ curl --noproxy '*' http://127.0.0.1:8790/health
 ```bash
 CUKTECH_FDS_RELAY_ALLOW_HTTP=1 python3 ap01_fds_relay_client.py \
   --relay-url http://127.0.0.1:8790 \
-  --bridge-url http://192.168.1.20:8765/screen.gif \
+  --bridge-url http://192.168.1.20:8765/screen.ap2b \
   --output artifacts/ap01-gateway-free-realtime.bin \
   --url-output artifacts/ap01-ota-url.txt \
   --skip-device-check

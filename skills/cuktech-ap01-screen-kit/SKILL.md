@@ -1,6 +1,6 @@
 ---
 name: cuktech-ap01-screen-kit
-description: Create, customize, validate, deploy, and operate Wi-Fi-updated screens for the CUKTECH AP01 detachable display. Use when Codex needs to convert images or GIFs to AP01-safe content, design a custom 320x240 dashboard, show official Claude Desktop and Codex quota windows, build the verified 1.0.2_0031 real-time firmware, install it through Xiaomi OTA, diagnose LAN refreshes, or explain and control Flash wear.
+description: Create, validate, deploy, recover, and operate Wi-Fi-updated screens for the CUKTECH AP01 detachable display. Use when Codex needs to convert images or GIFs, deploy the real-device-tested two-page Codex plus Claude Code and Kimi Code plus DeepSeek dashboard, build the exact 1.0.2_0031 loader, safely verify and install it through Xiaomi OTA, diagnose white pages or wrong carousel positions, or explain Flash versus RAM updates.
 ---
 
 # CUKTECH Screen Controller
@@ -31,22 +31,26 @@ artifacts into a shareable project.
 1. **Replace artwork on an already-patched display**: read
    [references/custom-content.md](references/custom-content.md). Convert the
    asset, atomically replace the served GIF, and avoid OTA.
-2. **Create or restyle a Claude/Codex quota panel**: read
-   [references/quota-dashboard.md](references/quota-dashboard.md). Fetch the
-   signed-in official accounts on macOS or Windows, edit `render_master()`, run
-   tests, and serve the lightweight GIF. macOS uses Keychain for Claude Safe
-   Storage; Windows uses current-user DPAPI for Claude's Electron profile.
-3. **Install real-time loading for the first time**: read
+2. **Deploy the verified two-page coding dashboard**: read
+   [references/two-page-coding-dashboard.md](references/two-page-coding-dashboard.md).
+   Use physical window 7 for Codex + Claude Code and stock Weather window 5
+   for Kimi Code + DeepSeek. Preserve the single-active-decoder design.
+3. **Encounter the legacy single-page Claude/Codex panel**: read
+   [references/quota-dashboard.md](references/quota-dashboard.md). Do not use
+   its Claude Desktop cookie collector for a new deployment. Migrate Claude
+   to the official statusLine cache in the verified two-page workflow, or use
+   the Codex-only bridge.
+4. **Install real-time loading for the first time**: read
    [references/realtime-firmware.md](references/realtime-firmware.md). Verify
    the exact firmware version before touching binary offsets. When the owner
    has no FDS-capable gateway, prefer the Controller's restricted shared-relay
    package flow; do not ask them to buy a gateway or share Xiaomi credentials.
-4. **Fix connectivity, IP changes, or persistent service operation**: read
+5. **Fix connectivity, IP changes, or persistent service operation**: read
    [references/network-operations.md](references/network-operations.md).
 
 ## Preserve device invariants
 
-- Emit exactly 320x240 GIF89a with at least two frames.
+- Emit exactly 320x240 GIF89a with at least two frames per page.
 - Keep animation bounded and prefer less than 90 KB for smooth decoding; still
   images use two slow frames, while source GIFs may retain up to eight frames.
 - Keep rows `0..39` empty when retaining the stock clock/date overlay.
@@ -63,20 +67,38 @@ artifacts into a shareable project.
   from source) on Private networks only.
 - Treat the firmware patch as specific to model `njcuk.enstor.ap01`, firmware
   `1.0.2_0031`; do not reuse its offsets on another build.
+- For the two-page dashboard, keep the fixed physical order
+  `Settings 6 → Codex/Claude 7 → Kimi/DeepSeek 5 → Date 4 → Time 3 → Power 0`.
+  Window 0 is Power, not Weather.
+- Keep exactly one full-size GIF decoder active. Reuse the window 7 stock GIF
+  object, create one object on window 5, and point the other object to the 1x1
+  tmpfs placeholder. Multiple decoders cause white pages.
 - Start the bridge before installing and require a logged AP01
-  `GET /screen.gif` after reboot.
-- Install the real-time firmware once. Perform later screen updates through
-  `/tmp/.ap01q*.gif` RAM slots instead of OTA.
+  `GET /screen.ap2b` after reboot for two-page firmware, or `/screen.gif` for
+  the legacy single-page workflow.
+- Install the real-time firmware once. Perform later two-page updates through
+  `/tmp/.ap01p{0,1,2}{m,o}.gif` RAM slots instead of OTA.
 - Never pass an already real-time-patched image through
   `ap01_custom_ota.py`; that would overwrite the injected payload area.
 - A shared relay may accept only the private Bridge URL, fixed model/version
   and refresh interval. It must reject arbitrary firmware uploads, pin the
   reviewed stock SHA-256, omit signed URLs from logs, and never receive the
   AP01 owner's Xiaomi credentials or DID.
-- Quota dashboards must expose freshness: include the last successful refresh
-  time, replace failed/stale collection with an explicit disconnected screen,
-  and keep the final non-looping GIF frame as a seven-minute offline fallback.
-  Custom artwork should not self-expire.
+- The public workflow must refuse device `--download-only`: AP01 1.0.2_0031
+  may continue into installation. Verify a signed package by downloading the
+  entire official CDN object on the host and comparing BFNP, size, SHA-256 and
+  MD5 without creating a Mi Home session or contacting AP01.
+- Never put Xiaomi PassTokens, provider keys or signed OTA URLs in command-line
+  arguments. Pass credentials through a secure prompt/stdin into Keychain and
+  put OTA tickets only in atomic mode-0600 files. Redact URL query strings,
+  local addresses and account paths from persistent logs.
+- Do not invoke `fetch_claude_desktop()` or export/decrypt browser cookies for
+  the verified dashboard. Claude Code data must arrive through the official
+  `statusLine.rate_limits` input and be reduced to quota fields before caching.
+- Live dashboards must expose freshness. The verified persistent two-page mode
+  keeps the last successful values and timestamp through outages; report
+  provider errors in local health/JSON and never describe an old timestamp as
+  current. The legacy single-page workflow may use a disconnected fallback.
 
 ## Validate before delivery
 
@@ -85,13 +107,14 @@ validate dimensions, GIF version, frame count, trailer, and byte size. For a
 firmware build, retain the patcher's manifest, CRC, MD5, payload readback,
 hook-target checks, and zero-relocation result.
 
-Confirm the bridge health and device request:
+Confirm bridge health and the correct content endpoint:
 
 ```bash
 curl --noproxy '*' http://127.0.0.1:8765/health
 ```
 
-On Windows use `Invoke-RestMethod http://127.0.0.1:8765/health`.
+For two-page mode also validate `/screen.ap2b`. On Windows use
+`Invoke-RestMethod http://127.0.0.1:8765/health`.
 
 Report separately:
 

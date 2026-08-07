@@ -27,15 +27,15 @@ private let launchLabel = bundledSetting(
 )
 private let miHomeKeychainService = "com.wqytommy.CUKTECHScreenController.mi-home-owner"
 private let miHomeKeychainAccount = "owner"
-private let otaGuideURL = URL(string: "https://github.com/wqytommy666/cuktech-screen-controller/blob/main/docs/AP01_FDS_NO_GATEWAY_SOLUTION.zh-CN.md")!
-private let beginnerGuideURL = URL(string: "https://github.com/wqytommy666/cuktech-screen-controller/blob/main/docs/BEGINNER_GUIDE.zh-CN.md")!
+private let otaGuideURL = URL(string: "https://github.com/zhuoshiren/cuktech-screen-controller/blob/main/docs/AP01_FDS_NO_GATEWAY_SOLUTION.zh-CN.md")!
+private let beginnerGuideURL = URL(string: "https://github.com/zhuoshiren/cuktech-screen-controller/blob/main/docs/BEGINNER_GUIDE.zh-CN.md")!
 private let agentSetupPrompt = """
 请使用这个公开仓库帮我配置酷态科 AP01 万向屏：
-https://github.com/wqytommy666/cuktech-screen-controller
+https://github.com/zhuoshiren/cuktech-screen-controller
 
 开始前先阅读 AGENTS.md、README.zh-CN.md 和 skills/cuktech-ap01-screen-kit/SKILL.md，先运行 ./macos/diagnose.sh，只做只读检查，不要直接刷固件。
 我没有编程基础，请一次只告诉我一个需要人工完成的动作。先确认 AP01 稳定供电、已在米家配网并显示在线，Mac 与 AP01 位于同一非访客、非隔离局域网，VPN/防火墙允许 TCP 8765；本项目不用 USB 传图。
-请配置软件与 Bridge，验证 /health、320×240 GIF89a 和 AP01 GET /screen.gif 200，并设置登录自动启动。如果实时加载器已经存在，不要 OTA；如果不存在，先确认型号 njcuk.enstor.ap01 和固件 1.0.2_0031，真正安装前再次向我确认。日常更新只使用 /tmp RAM。
+请配置软件与 Bridge，验证 /health、屏幕内容和 AP01 GET /screen.gif 或 /screen.ap2b 200，并设置登录自动启动。如果实时加载器已经存在，不要 OTA；如果不存在，先确认型号 njcuk.enstor.ap01 和固件 1.0.2_0031，真正安装前再次向我确认。日常更新只使用 /tmp RAM。
 """
 
 private func runProcess(_ executable: String, _ arguments: [String]) throws -> String {
@@ -68,7 +68,7 @@ private func hasLoggedAP01Request() -> Bool {
     let log = artifacts.appendingPathComponent("ap01_launchd.log")
     guard let value = try? String(contentsOf: log, encoding: .utf8) else { return false }
     return value.split(separator: "\n").contains { line in
-        line.contains("GET /screen.gif") && line.contains(" 200")
+        (line.contains("GET /screen.gif") || line.contains("GET /screen.ap2b")) && line.contains(" 200")
     }
 }
 
@@ -345,25 +345,25 @@ final class OTADeployModel: ObservableObject {
         }
         verificationPassed = false
         begin(
-            title: "正在让 AP01 仅下载并校验（不会安装）…",
+            title: "正在由这台 Mac 回读 OTA CDN 并逐字节校验…",
             arguments: [
                 projectRoot.appendingPathComponent("ap01_install_firmware.py").path,
                 firmwareURL.path,
-                "--download-only",
+                "--verify-download",
                 "--ota-url-file", ticketURL.path,
                 "--timeout", "360"
             ]
         ) { [weak self] in
             self?.verificationPassed = true
-            self?.status = "下载校验完成 · 未安装、未切换启动分区"
-            self?.appendLog("✓ AP01 下载验证通过；本次没有安装固件\n")
+            self?.status = "CDN 回读校验完成 · 尚未向 AP01 下发 OTA"
+            self?.appendLog("✓ Mac 回读文件与本地固件逐字节一致；未连接 AP01、未安装固件\n")
         }
     }
 
     func installFirmware() {
         guard verificationPassed, let firmwareURL, firmwareValid,
               let ticketURL, ticketReady else {
-            status = "请先完成“仅下载验证”"
+            status = "请先完成“电脑端 CDN 回读验证”"
             return
         }
         let alert = NSAlert()
@@ -974,7 +974,7 @@ struct OTADeploymentView: View {
             Image(systemName: "memorychip.fill").foregroundStyle(.green).font(.title3)
             VStack(alignment: .leading, spacing: 3) {
                 Text("只有最后确认时才会安装一次").font(.subheadline.bold())
-                Text("无网关用户可自动获取部署包并先执行“仅下载验证”。真正写入前软件会再次弹窗确认；已经能实时显示的设备无需 OTA，日常图片/额度刷新仍只写 RAM。")
+                Text("无网关用户可自动获取部署包并先由电脑回读 OTA CDN；这一步不连接 AP01。真正写入前软件会再次弹窗确认；已经能实时显示的设备无需 OTA，日常图片/额度刷新仍只写 RAM。")
                     .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             }
             Spacer()
@@ -1067,7 +1067,7 @@ struct OTADeploymentView: View {
     private var verificationCard: some View {
         HStack(spacing: 15) {
             VStack(alignment: .leading, spacing: 5) {
-                stepTitle("3", "验证并安装", "先安全下载验证；安装前会再次明确确认")
+                stepTitle("3", "验证并安装", "先由电脑回读 CDN；安装前会再次明确确认")
                 Text(model.status).font(.caption).foregroundStyle(model.verificationPassed ? Color.green : Color.secondary)
                     .lineLimit(2).fixedSize(horizontal: false, vertical: true)
             }
@@ -1077,7 +1077,7 @@ struct OTADeploymentView: View {
                 Button("取消") { model.cancel() }.buttonStyle(.bordered)
             }
             Button { model.verifyDownload() } label: {
-                Label("仅下载验证（不会安装）", systemImage: "checkmark.shield.fill")
+                Label("电脑端 CDN 回读验证", systemImage: "checkmark.shield.fill")
             }
             .buttonStyle(.borderedProminent).tint(.green)
             .disabled(model.busy || !model.firmwareValid || !model.ticketReady)

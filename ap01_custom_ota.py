@@ -144,7 +144,7 @@ def choose_fds_device(
         raise RuntimeError(
             "账号中未找到可用于 Xiaomi FDS 上传的网关。AP01 自身没有 FDS "
             "服务端配置，不能用 njcuk.enstor.ap01 的 DID/model 代替；请由含 "
-            "FDS 网关的账号执行 --upload-only，或使用已签名的 --ota-url。"
+            "FDS 网关的账号执行 --upload-only，或使用私有票据文件 --ota-url-file。"
         )
     return candidates[0]
 
@@ -152,17 +152,94 @@ def choose_fds_device(
 def probe_ota_url(url: str) -> None:
     """Require the AP01-compatible CDN URL to return a BFNP image header."""
 
-    probe = requests.get(
-        url,
-        headers={"Range": "bytes=0-3"},
-        stream=True,
-        timeout=30,
-    )
-    probe.raise_for_status()
-    magic = next(probe.iter_content(4), b"")
-    probe.close()
+    parsed = urlsplit(url)
+    if parsed.scheme != "https" or parsed.hostname != OTA_CDN_HOST:
+        raise RuntimeError(
+            f"OTA URL 必须使用官方 HTTPS CDN：{OTA_CDN_HOST}"
+        )
+
+    probe: requests.Response | None = None
+    try:
+        probe = requests.get(
+            url,
+            headers={"Range": "bytes=0-3"},
+            stream=True,
+            timeout=30,
+        )
+        probe.raise_for_status()
+        magic = next(probe.iter_content(4), b"")
+    except requests.RequestException:
+        # requests includes the full URL in exception text.  A Xiaomi OTA URL
+        # contains a bearer-like signature, so never preserve that exception.
+        raise RuntimeError("OTA CDN 文件头回读请求失败") from None
+    finally:
+        if probe is not None:
+            probe.close()
     if magic != b"BFNP":
         raise RuntimeError("OTA URL 回读文件头失败：不是 AP01 BFNP 镜像")
+
+
+def verify_ota_readback(url: str, firmware: Path, timeout: int = 180) -> dict[str, Any]:
+    """Download the signed CDN object on the host and compare every byte.
+
+    This is intentionally a host-side verification.  AP01 1.0.2_0031 may
+    continue from a ``proc=dnld`` request into installation, so verification
+    must not dispatch ``miIO.ota`` to the display.
+    """
+
+    parsed = urlsplit(url)
+    if parsed.scheme != "https" or parsed.hostname != OTA_CDN_HOST:
+        raise RuntimeError(
+            f"OTA URL 必须使用官方 HTTPS CDN：{OTA_CDN_HOST}"
+        )
+
+    expected_size = firmware.stat().st_size
+    expected_sha256 = hashlib.sha256()
+    expected_md5 = hashlib.md5()
+    with firmware.open("rb") as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            expected_sha256.update(chunk)
+            expected_md5.update(chunk)
+
+    response: requests.Response | None = None
+    actual_sha256 = hashlib.sha256()
+    actual_md5 = hashlib.md5()
+    actual_size = 0
+    header = bytearray()
+    try:
+        response = requests.get(url, stream=True, timeout=timeout)
+        response.raise_for_status()
+        for chunk in response.iter_content(1024 * 1024):
+            if not chunk:
+                continue
+            if len(header) < 4:
+                header.extend(chunk[: 4 - len(header)])
+            actual_size += len(chunk)
+            actual_sha256.update(chunk)
+            actual_md5.update(chunk)
+    except requests.RequestException:
+        raise RuntimeError("OTA CDN 完整回读请求失败") from None
+    finally:
+        if response is not None:
+            response.close()
+
+    if bytes(header) != b"BFNP":
+        raise RuntimeError("OTA CDN 回读文件不是 AP01 BFNP 镜像")
+    if actual_size != expected_size:
+        raise RuntimeError(
+            f"OTA CDN 回读大小不一致：本地 {expected_size}，远端 {actual_size}"
+        )
+    if actual_sha256.digest() != expected_sha256.digest():
+        raise RuntimeError("OTA CDN 回读 SHA-256 不一致")
+    if actual_md5.digest() != expected_md5.digest():
+        raise RuntimeError("OTA CDN 回读 MD5 不一致")
+
+    return {
+        "size": actual_size,
+        "sha256": actual_sha256.hexdigest(),
+        "md5": actual_md5.hexdigest(),
+        "header": "BFNP",
+    }
 
 
 def upload_to_xiaomi(
@@ -191,9 +268,17 @@ def upload_to_xiaomi(
 
     print("正在上传到 Xiaomi FDS…")
     # Do not add Content-Type: it is not part of Xiaomi's pre-signed PUT signature.
-    with firmware.open("rb") as stream:
-        response = requests.put(upload["url"], data=stream, timeout=180)
-    response.raise_for_status()
+    response: requests.Response | None = None
+    try:
+        with firmware.open("rb") as stream:
+            response = requests.put(upload["url"], data=stream, timeout=180)
+        response.raise_for_status()
+    except requests.RequestException:
+        # Do not let a pre-signed upload URL escape through requests' error text.
+        raise RuntimeError("Xiaomi FDS 固件上传失败") from None
+    finally:
+        if response is not None:
+            response.close()
 
     fetched = cloud.request("home/getfileurl", {"obj_name": upload["obj_name"]})
     result = fetched.get("result") or {}
@@ -245,31 +330,24 @@ def deliver(
     firmware: Path,
     url: str,
     timeout: int,
-    *,
-    download_only: bool,
 ) -> None:
     device = cloud.ap01()
     did = str(device["did"])
     checksum = md5_file(firmware)
-    proc = "dnld" if download_only else "dnld install"
     params: dict[str, Any] = {
         "app_url": url,
         "file_md5": checksum,
-        "proc": proc,
+        "proc": "dnld install",
         "mode": "normal",
         "signed_file": False,
         "original_length": firmware.stat().st_size,
+        "install": "1",
     }
-    if not download_only:
-        params["install"] = "1"
     dispatch_time = int(time.time()) - 5
     accepted = cloud.rpc(did, "miIO.ota", params)
     if accepted.get("code") != 0 or "ok" not in (accepted.get("result") or []):
         raise RuntimeError(f"AP01 未接受 OTA：code={accepted.get('code')}")
-    if download_only:
-        print("设备已接受 OTA 下载测试；本次不安装、不切换启动分区…")
-    else:
-        print("设备已接受 OTA，等待下载和重启…")
+    print("设备已接受 OTA，等待下载和重启…")
 
     started = time.monotonic()
     last = None
@@ -301,8 +379,7 @@ def deliver(
             # install/reboot too.  A decreased uptime after observing the
             # install stage is stronger evidence than that stale marker.
             if (
-                not download_only
-                and saw_install_stage
+                saw_install_stage
                 and isinstance(life, int)
                 and initial_life is not None
                 and life < initial_life
@@ -313,16 +390,10 @@ def deliver(
                 errors = recent_ota_errors(cloud, did, dispatch_time)
                 if errors:
                     raise RuntimeError(f"AP01 OTA 失败（progress=101）：{errors[0]}")
-                if download_only or not saw_install_stage:
+                if not saw_install_stage:
                     raise RuntimeError(
                         "AP01 OTA 返回 progress=101，但没有 ota_error 明细"
                     )
-            if download_only and (
-                state_value == "downloaded"
-                or (isinstance(progress_value, int) and progress_value == 100)
-            ):
-                print("下载校验已完成；镜像尚未安装")
-                return
         except (requests.RequestException, ValueError):
             saw_offline = True
         time.sleep(2)
@@ -342,18 +413,28 @@ def main() -> None:
     parser.add_argument(
         "--download-only",
         action="store_true",
-        help="仅验证 OTA CDN 下载与 MD5，不安装镜像",
+        help="已禁用：AP01 1.0.2_0031 可能继续自动安装",
+    )
+    parser.add_argument(
+        "--verify-download",
+        action="store_true",
+        help="上传后由本机回读 CDN 并校验；不向 AP01 下发 OTA",
     )
     parser.add_argument("--fds-did", help="显式指定具备 FDS 能力的网关 DID")
     parser.add_argument("--fds-model", help="显式指定具备 FDS 能力的网关 model")
     parser.add_argument("--timeout", type=int, default=180)
     args = parser.parse_args()
 
-    if args.install and args.download_only:
-        parser.error("--install 和 --download-only 不能同时使用")
+    if args.download_only:
+        raise SystemExit(
+            "AP01 1.0.2_0031 实测可能在 download-only 后继续自动安装并重启；"
+            "已禁用该选项，请使用 --verify-download。"
+        )
+    if args.install and args.verify_download:
+        parser.error("--install 和 --verify-download 不能同时使用")
     if bool(args.fds_did) != bool(args.fds_model):
         parser.error("--fds-did 和 --fds-model 必须同时提供")
-    cloud = MiCloud() if args.install or args.download_only or args.firmware is None else None
+    cloud = MiCloud() if args.install or args.verify_download or args.firmware is None else None
     source = args.firmware
     if source is None:
         source = ARTIFACTS / "ap01-1.0.2_0031.bin"
@@ -361,7 +442,7 @@ def main() -> None:
             assert cloud is not None
             source = cloud.download_firmware(ARTIFACTS)
     build_firmware(source, args.gif, args.output)
-    if not args.install and not args.download_only:
+    if not args.install and not args.verify_download:
         print("已完成构建并刷新 AP01 Recovery 长度/CRC 元数据")
         return
     assert cloud is not None
@@ -371,13 +452,15 @@ def main() -> None:
         fds_did=args.fds_did,
         fds_model=args.fds_model,
     )
-    deliver(
-        cloud,
-        args.output,
-        url,
-        args.timeout,
-        download_only=args.download_only,
-    )
+    if args.verify_download:
+        result = verify_ota_readback(url, args.output, args.timeout)
+        print(
+            "电脑端 OTA CDN 回读验证通过："
+            f"BFNP，{result['size']} 字节，SHA-256 与 MD5 完全一致；"
+            "未向 AP01 下发 OTA。"
+        )
+        return
+    deliver(cloud, args.output, url, args.timeout)
 
 
 if __name__ == "__main__":

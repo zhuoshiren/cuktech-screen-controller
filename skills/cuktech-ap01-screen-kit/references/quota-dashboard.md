@@ -1,69 +1,46 @@
-# Claude and Codex quota dashboard
+# Legacy single-page migration note
 
-## Data sources
+The repository retains an older one-page renderer for compatibility. Its
+Claude collector decrypts the local Claude Desktop cookie store and calls a
+web-account endpoint. That path is **not** part of the reviewed two-page case,
+and this Skill must not enable or recommend it for a new deployment.
 
-The bundled automatic account collector supports macOS and Windows. macOS
-reads Claude Desktop's cookie store and Claude Safe Storage through Keychain.
-Windows copies the current user's Electron cookie database, unwraps its key
-with DPAPI, and decrypts supported Chromium cookie records in memory.
+For the real-device-tested four-provider physical two-page layout, read
+[two-page-coding-dashboard.md](two-page-coding-dashboard.md).
 
-- Query Codex through the signed-in official `codex app-server` API.
-- Query Claude through Claude Desktop's encrypted Electron cookies and the
-  official Claude usage endpoint.
-- Keep credentials and session cookies in memory. Write only sanitized quota
-  values and rendered images.
-- On Windows, look for the official Codex executable or CLI; use
-  `CUKTECH_CODEX_BIN` only for a non-standard installation.
+## Safe migration choices
 
-The bundled renderer supports Claude 5-hour, weekly, and Fable 5 windows plus
-Codex 5-hour and weekly windows. A missing Codex 5-hour window is rendered as
-the promotional/inactive state rather than as an API error.
+Choose one:
 
-## Render and preview
+- Use `codex_plan_bridge.py` for a Codex-only page through the official local
+  `codex app-server`.
+- Use `coding_balances_bridge.py` plus `claude_statusline_cache.py` for Claude
+  Code. The cache helper has no network code and keeps only official quota
+  percentages, reset times, plan label and cache time.
+- Preserve the old renderer only as a visual reference; do not call
+  `fetch_claude_desktop()`, read Claude Safe Storage, export browser cookies,
+  or copy a Chromium cookie database.
 
-```bash
-.venv/bin/python quota_dashboard.py
-.venv/bin/python -m unittest -v test_quota_dashboard.py
-```
+If an existing installation still depends on the legacy collector, explain
+the difference and obtain an explicit migration decision. Do not silently
+switch account access methods.
 
-Windows PowerShell uses `.\.venv\Scripts\python.exe` in place of
-`.venv/bin/python`.
+## Preserve the visual contract
 
-Outputs live in `artifacts/`:
-
-- `quota-dashboard-master.png`: 1280x960 design master.
-- `quota-dashboard@2x.png`: 640x480 preview.
-- `quota-dashboard.png`: 320x240 frame.
-- `quota-dashboard.gif`: lightweight four-frame GIF89a with subtle rail glints.
-- `quota-current.json`: sanitized values.
-
-## Customize the UI
-
-Edit design tokens and geometry inside `render_master()` in
-`quota_dashboard.py`. Preserve these invariants:
+When reusing the old one-page design, preserve these invariants:
 
 1. Keep rows `0..39` empty for the AP01 clock/date overlay.
 2. Keep the device output exactly 320x240.
 3. Keep large numbers visually centered inside their rings.
-4. Use near-black surfaces on panels that lift blacks or look washed out.
-5. Export at least two slow frames; one-frame GIFs may render black.
-6. Keep the GIF under 90 KB for smooth playback when practical.
+4. Export at least two slow frames; one-frame GIFs may render black.
+5. Keep the GIF under 90 KB for smooth playback when practical.
 
-Run the tests after every layout change and inspect the 2x preview before
-serving it.
+Use the render commands from the selected safe workflow. All generated quota
+JSON and previews are private runtime artifacts and must remain ignored by Git.
 
-## Run the live bridge
+## Verify the replacement
 
-```bash
-.venv/bin/python -u ap01_wifi_bridge.py \
-  --bind 0.0.0.0 --port 8765 --interval 300
-```
-
-Verify:
-
-```bash
-curl --noproxy '*' http://127.0.0.1:8765/health
-```
-
-The bridge regenerates the dashboard every five minutes. A log entry from the
-AP01 LAN IP requesting `/screen.gif` confirms end-to-end delivery.
+Require a localhost health check, an AP01 allow-list hit without printing its
+address, and visual confirmation. The two-page route must show a Claude source
+of `Claude Code official statusLine`; any cookie-based source means migration
+is incomplete.

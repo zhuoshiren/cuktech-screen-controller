@@ -56,7 +56,7 @@ macOS 和 Windows 都可以直接安装，不要求用户写代码。
 
 ### 第 1 步：下载安装包
 
-打开 [GitHub Releases](https://github.com/wqytommy666/cuktech-screen-controller/releases/latest)，
+打开 [GitHub Releases](https://github.com/zhuoshiren/cuktech-screen-controller/releases/latest)，
 按电脑系统下载其中一个文件：
 
 ```text
@@ -83,7 +83,7 @@ macOS 若提示没有 Python 3，请安装后再运行一次。Windows Release �
 3. 打开“首次部署 / OTA 交接”；
 4. 点击“无网关：一键获取部署包”；
 5. 等待 BFNP 与 SHA-256 预检通过；
-6. 点击“仅下载验证（不会安装）”；
+6. 点击“电脑端 CDN 回读验证”（这一步不连接 AP01）；
 7. 验证成功后点击“确认后安装”，阅读最终提示并明确确认；
 8. 等待 AP01 重启，切到电子宠物/虚拟形象页面。
 
@@ -126,7 +126,7 @@ OpenCode、WorkBuddy 等能够读取 GitHub 并执行终端命令的软件。
 
 ```text
 请使用这个公开仓库帮我配置酷态科 AP01 万向屏：
-https://github.com/wqytommy666/cuktech-screen-controller
+https://github.com/zhuoshiren/cuktech-screen-controller
 
 开始前先阅读仓库根目录的 AGENTS.md、README.zh-CN.md 和
 skills/cuktech-ap01-screen-kit/SKILL.md。先运行只读诊断，不要直接刷固件。
