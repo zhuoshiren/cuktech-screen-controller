@@ -16,6 +16,12 @@ $BuiltApp = Join-Path $Root "dist\windows\CUKTECH Screen Controller"
 if (-not (Test-Path (Join-Path $BuiltApp "CUKTECH Screen Controller.exe"))) {
     throw "Run windows/build-app.ps1 first."
 }
+$ReadmeCandidates = @(
+    Get-ChildItem -LiteralPath $PSScriptRoot -File -Filter "*-Windows.txt"
+)
+if ($ReadmeCandidates.Count -ne 1) {
+    throw "Expected exactly one localized Windows README, found $($ReadmeCandidates.Count)."
+}
 
 $StageName = "CUKTECH-Screen-Controller-$Version-Windows-x64"
 $Stage = Join-Path $Root "dist\$StageName"
@@ -27,13 +33,14 @@ Copy-Item -Recurse -Force $BuiltApp (Join-Path $Stage "App")
 Copy-Item -Force "$PSScriptRoot\Install CUKTECH Screen Controller.cmd" $Stage
 Copy-Item -Force "$PSScriptRoot\Install-CUKTECHScreenController.ps1" $Stage
 Copy-Item -Force "$PSScriptRoot\Uninstall-CUKTECHScreenController.ps1" $Stage
-Copy-Item -Force "$PSScriptRoot\先读我-Windows.txt" $Stage
+$StagedReadme = Join-Path $Stage "README-Windows.zh-CN.txt"
+Copy-Item -LiteralPath $ReadmeCandidates[0].FullName -Destination $StagedReadme -Force
 Copy-Item -Force "$PSScriptRoot\mi-credentials.example.json" $Stage
 Copy-Item -Force "$PSScriptRoot\THIRD-PARTY-NOTICES.txt" $Stage
 Copy-Item -Force (Join-Path $Root "LICENSE") (Join-Path $Stage "PROJECT-LICENSE.txt")
 
-(Get-Content (Join-Path $Stage "先读我-Windows.txt") -Raw).Replace("{{VERSION}}", $Version) |
-    Set-Content -Encoding UTF8 (Join-Path $Stage "先读我-Windows.txt")
+(Get-Content -LiteralPath $StagedReadme -Raw).Replace("{{VERSION}}", $Version) |
+    Set-Content -Encoding UTF8 -LiteralPath $StagedReadme
 (Get-Content (Join-Path $Stage "Install-CUKTECHScreenController.ps1") -Raw).Replace("{{VERSION}}", $Version) |
     Set-Content -Encoding UTF8 (Join-Path $Stage "Install-CUKTECHScreenController.ps1")
 
